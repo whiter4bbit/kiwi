@@ -1,5 +1,7 @@
 package phi.client
 
+import phi.Message
+import phi.server.AppendMessage
 import com.twitter.finagle.{Http, Service}
 import com.twitter.util.{Await, Future}
 import org.jboss.netty.buffer.ChannelBuffers
@@ -11,9 +13,9 @@ class QueueClient(url: String) {
   private val client: Service[HttpRequest, HttpResponse] = 
     Http.newService(url)
 
-  def append(topic: String, payload: Array[Byte]): Future[Unit] = {
+  def append(topic: String, messages: List[AppendMessage]): Future[Unit] = {
     val request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.POST, topic)
-    request.setContent(ChannelBuffers.wrappedBuffer(payload))
+    request.setContent(AppendMessageLengthPrefixEncoder(messages))
     client(request).map { resp =>
       if (resp.getStatus == HttpResponseStatus.OK) 
         ()
@@ -22,27 +24,37 @@ class QueueClient(url: String) {
     }
   }
 
-  def fetch(topic: String): Future[Option[Array[Byte]]] = {
-    val request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, topic)
-    client(request).map { resp =>
-      resp.getStatus match {
-        case HttpResponseStatus.OK => Some(resp.getContent().array())
-        case _ => None
-      }
+  private def getMessages(resp: HttpResponse): List[Message] = {
+    resp.getStatus match {
+      case HttpResponseStatus.OK => LengthPrefixDecoder(resp.getContent)
+      case _ => List()
     }
   }
 
-  def poll(topic: String): Future[Option[Array[Byte]]] = {
-    val request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, s"$topic/poll")
-    client(request).map { resp =>
-      resp.getStatus match {
-        case HttpResponseStatus.OK => Some(resp.getContent().array())
-        case _ => None
-      }
-    }
+  def fetch(topic: String, count: Int): Future[List[Message]] = {
+    val request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, s"$topic/$count")
+    client(request).map(getMessages)
   }
+
+  def poll(topic: String, count: Int): Future[List[Message]] = {
+    val request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, s"$topic/poll/$count")
+    client(request).map(getMessages)
+  }
+
+  def poll(topic: String, consumer: String, count: Int): Future[List[Message]] = {
+    val request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, s"$topic/consumer/$consumer/poll/$count")
+    client(request).map(getMessages)
+  }
+
+  def commit(topic: String, consumer: String, offset: Long): Future[Unit] = {
+    val request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.POST, s"$topic/consumer/$consumer/commit")
+    request.setContent(ChannelBuffers.wrappedBuffer(offset.toString.getBytes))
+    client(request).map(_ => ())
+  }
+
 }
 
 object QueueClient {
   def apply(url: String) = new QueueClient(url)
 }
+

@@ -4,7 +4,7 @@ import java.nio.file.Path
 import java.io.{IOException, EOFException, File, RandomAccessFile}
 import phi.io._
 
-class LogOffset(baseDir: Path, topicName: String) {
+class LogOffset(baseDir: Path, topicName: String, consumer: Option[String] = None) {
   @volatile private var offset: Long = _
   private var offsetFile: File = _
   private var raf: RandomAccessFile = _
@@ -15,7 +15,8 @@ class LogOffset(baseDir: Path, topicName: String) {
     val journalPath = baseDir.resolve(topicName)
     if (!journalPath.exists)
       journalPath.createDirectories
-    offsetFile = journalPath.resolve("offset").toFile
+    val fileName = "offset" + consumer.map(c => s"-$c").getOrElse("")
+    offsetFile = journalPath.resolve(fileName).toFile
 
     val shouldUpdate = offsetFile.exists
 

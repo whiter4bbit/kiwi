@@ -1,5 +1,6 @@
 package phi
 
+import java.nio.channels.FileChannel
 import java.nio.file.{Files, Path, Paths}
 import java.io.{File, EOFException, IOException, RandomAccessFile}
 
@@ -69,6 +70,7 @@ class Log(baseDir: Path, name: String) {
   init()
 
   private var raf: RandomAccessFile = _
+  private var channel: FileChannel = _
   private var journalFile: File = _
 
   private def init(): Unit = {
@@ -82,6 +84,7 @@ class Log(baseDir: Path, name: String) {
       journalFile = journalPath.resolve("journal.bin").toFile
       raf = new RandomAccessFile(journalFile, "rw")
       raf.seek(raf.length)
+      channel = raf.getChannel
     } catch {
       case e: IOException => cleanup(); throw e
     }
@@ -91,6 +94,14 @@ class Log(baseDir: Path, name: String) {
     try {
       raf.writeInt(payload.size)
       raf.write(payload)
+    } catch {
+      case e: IOException => cleanup(); throw e
+    }
+  }
+
+  def append(set: AppendMessageSet): Unit = this.synchronized {
+    try {
+      set.transferTo(channel)
     } catch {
       case e: IOException => cleanup(); throw e
     }
