@@ -37,7 +37,7 @@ class QueueService(logPath: String, stats: StatsReceiver) extends Service[HttpRe
     if (content == null) {
       respond(BAD_REQUEST, s"content expected")
     } else {
-      stats.time("queue-service/append_duration") {
+      stats.time("queue-service/batch_append_duration") {
         val messageSet = AppendMessageSet(content)
         topics.getProducer(topic).append(messageSet)
         appendsCounter.incr(messageSet.count)

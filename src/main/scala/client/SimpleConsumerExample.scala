@@ -10,7 +10,7 @@ object SimpleConsumerExample {
     def consume(): Unit = {
       val future = client.poll("example-topic", 10).map { messages =>
         messages.foreach { m => println(s"${new String(m.payload)}") }
-      }
+      } 
 
       try { Await.ready(future, Duration.fromSeconds(30)) } catch { case _ => /* */ }
       consume()
