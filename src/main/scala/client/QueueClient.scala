@@ -13,9 +13,9 @@ class QueueClient(url: String) {
   private val client: Service[HttpRequest, HttpResponse] = 
     Http.newService(url)
 
-  def append(topic: String, messages: List[AppendMessage]): Future[Unit] = {
+  def append(topic: String, messages: AppendMessageSetSend): Future[Unit] = {
     val request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.POST, topic)
-    request.setContent(AppendMessageLengthPrefixEncoder(messages))
+    request.setContent(messages.content)
     client(request).map { resp =>
       if (resp.getStatus == HttpResponseStatus.OK) 
         ()
