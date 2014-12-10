@@ -1,6 +1,6 @@
 package phi.client
 
-import com.twitter.util.{Future, Await}
+import com.twitter.util.{Future, Await, Return, Throw}
 import phi.server.AppendMessage
 
 import scala.annotation.tailrec
@@ -25,6 +25,9 @@ object ProducerExample {
       if (buffer.length == options.batch) {
         client.append("example-topic", buffer) ensure {
           produce(i + 1, msg::Nil)
+        } respond {
+          case Return(_) => /* pass */
+          case Throw(th) => th.printStackTrace
         }
       } else {
         produce(i + 1, buffer :+ msg)

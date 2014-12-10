@@ -10,14 +10,17 @@ import java.net.InetSocketAddress
 
 object QueueServer extends TwitterServer {
   def main(): Unit = {
-    val queueService = new QueueService(".", statsReceiver)
+    val handleExceptions = new ExceptionHandler(log)
+    val queueService = new QueueService(".", statsReceiver) 
+
+    val service = handleExceptions andThen queueService
 
     val server = ServerBuilder()
       .codec(Http())
       .bindTo(new InetSocketAddress(8080))
       .name("queue-server")
       .reportTo(statsReceiver)
-      .build(queueService) 
+      .build(service)
 
     Await.ready(adminHttpServer)
   }

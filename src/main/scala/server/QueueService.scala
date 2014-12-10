@@ -80,6 +80,9 @@ class QueueService(logPath: String, stats: StatsReceiver) extends Service[HttpRe
 
   def apply(req: HttpRequest): Future[HttpResponse] = {
     (req.getMethod, Path(req.getUri)) match {
+      case Method.Get -> Root / "throw" => futurePool.apply {
+        throw new Error("Something went wrong")
+      }
       case Method.Post -> Root / topic => appendMessage(req, topic)
       case Method.Get -> Root / topic => fetchMessages(topic, 1)
       case Method.Get -> Root / topic / count => fetchMessages(topic, count.toInt)
