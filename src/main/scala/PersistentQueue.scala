@@ -4,10 +4,12 @@ import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 import scala.collection.mutable.HashMap
 
+import phi.message.TransferableMessageSet
+
 class Producer(log: Log) {
   def append(payload: Array[Byte]) = 
     log.append(payload)
-  def append(set: AppendMessageSet) = 
+  def append(set: TransferableMessageSet) = 
     log.append(set)
 }
 
@@ -31,19 +33,25 @@ object CachedResource {
 }
 
 class PersistentQueue(baseDir: Path) {
-  private val logs = CachedResource((topic: String) => new Log(baseDir, topic))
+  private val logs = CachedResource((topic: String) => Log.open(baseDir, topic))
   private val globalOffsets = CachedResource((topic: String) => new LogOffset(baseDir, topic))
   private val consumerOffsets = CachedResource((p: (String, String)) => new LogOffset(baseDir, p._1, Some(p._2)))
+  private val producers = CachedResource((topic: String) => new Producer(logs.get(topic)))
+  private val globalConsumers = CachedResource((topic: String) => new GlobalConsumer(logs.get(topic), globalOffsets.get(topic)))
+  private val offsetConsumers = CachedResource { p: (String, String) =>
+    val (topic, consumer) = p
+    new OffsetConsumer(logs.get(topic), consumerOffsets.get(topic, consumer))
+  }
 
   def getConsumer(topic: String) =
-    new GlobalConsumer(logs.get(topic), globalOffsets.get(topic))
+    globalConsumers.get(topic)
 
   def getConsumer(topic: String, consumer: String) =
-    new OffsetConsumer(logs.get(topic), consumerOffsets.get(topic, consumer))
+    offsetConsumers.get(topic, consumer)
 
   def getOffset(topic: String, consumer: String) =
     consumerOffsets.get(topic, consumer)
 
   def getProducer(topic: String) =
-    new Producer(logs.get(topic))
+    producers.get(topic)
 }

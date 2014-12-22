@@ -2,22 +2,24 @@ package phi
 
 import java.nio.file.Path
 
+import phi.message.FileChannelMessagesPointer
+
 sealed trait Consumer {
-  def next(n: Int): List[Message]
-  def next(): Option[Message] = next(1).headOption
+  def next(n: Int): FileChannelMessagesPointer
 }
 
 class GlobalConsumer(log: Log, offset: LogOffset) extends Consumer {
-  def next(n: Int): List[Message] = this.synchronized {
-    val messages = log.read(offset).next(n)
-    messages.lastOption.map { message =>
-      offset.set(message.offset + 4 + message.payload.length)
+  def next(n: Int): FileChannelMessagesPointer = this.synchronized {
+    val pointer = log.read(offset, n).pointer
+    if (pointer.count > 0) {
+      offset.set(pointer.offset + pointer.region.count)
     }
-    messages
+    pointer
   }
 }
 
 class OffsetConsumer(log: Log, offset: LogOffset) extends Consumer {
-  def next(n: Int): List[Message] = 
-    log.read(offset).next(n)
+  def next(n: Int): FileChannelMessagesPointer = {
+    log.read(offset, n).pointer
+  }
 }

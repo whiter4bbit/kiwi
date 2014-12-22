@@ -1,8 +1,8 @@
 package phi.io
 
-import java.nio.file.{Path => JPath, Files => JFiles, FileVisitor, FileVisitResult}
+import java.nio.file.{Path => JPath, Paths => JPaths,Files => JFiles, FileVisitor, FileVisitResult}
 import java.nio.file.attribute.BasicFileAttributes
-import java.io.{File => JFile, IOException}
+import java.io.{File => JFile, RandomAccessFile, IOException}
 
 case class PhiPath(path: JPath) {
   def exists: Boolean = JFiles.exists(path)
@@ -36,8 +36,22 @@ case class PhiPath(path: JPath) {
     }
     walkFileTree(postVisitDirectory, (_, _) => CONTINUE, visitFile, (_, _) => CONTINUE)
   }
+  def newRandomAccessFile(mode: String) = {
+    new RandomAccessFile(path.toFile, mode)
+  }
+  def readAllBytes(): Array[Byte] = {
+    JFiles.readAllBytes(path)
+  }
+  def resolve(seg: String) = {
+    PhiPath(path.resolve(seg))
+  }
+  def /(seg: String) = {
+    resolve(seg)
+  }
 }
 
 trait PhiPathImplicits {
   implicit def jpath2PhiPath(path: JPath) = PhiPath(path)
+  implicit def jfile2PhiPath(file: JFile) = PhiPath(file.toPath)
+  implicit def string2PhiPath(seg: String) = PhiPath(JPaths.get(seg))
 }

@@ -2,9 +2,10 @@ package phi.client
 
 import com.twitter.util.{Future, Await, Return, Throw}
 import org.jboss.netty.buffer.ChannelBuffers
-import phi.server.AppendMessage
 
 import scala.annotation.tailrec
+
+import phi.message.ChannelBufferMessageSet
 
 object ProducerExample {
   case class Options(batch: Int = 10, producers: Int = 1, size: Int = 128)
@@ -20,7 +21,7 @@ object ProducerExample {
   def main(args: Array[String]): Unit = {
     val options = parse(args.toList, Options())
 
-    val client = new QueueClient("localhost:8080")
+    val producer = QueueClient("localhost:8080").producer("example-topic")
 
     val buffer = ChannelBuffers.dynamicBuffer(options.batch * (4 + options.size))
 
@@ -31,10 +32,10 @@ object ProducerExample {
       buffer.writeBytes(message)
     }
 
-    val messages = new AppendMessageSetSend(buffer)
+    val messages = ChannelBufferMessageSet(buffer)
 
     def produce(): Unit = {
-      client.append("example-topic", messages) ensure {
+      producer.send(messages) ensure {
         produce()
       } respond {
         case Return(_) => /* pass */
@@ -50,3 +51,4 @@ object ProducerExample {
 
   }
 }
+

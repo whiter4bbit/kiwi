@@ -16,20 +16,21 @@ import java.net.InetSocketAddress
 import scala.concurrent.duration._
 
 import phi.{Log, LogView, PersistentQueue, PollingConsumer, AppendMessageSet}
+import phi.message.TransferableMessageSet
 
 class QueueService(logPath: String, stats: StatsReceiver) extends Service[HttpRequest, HttpResponse] {
   private val topics = new PersistentQueue(Paths.get(logPath))
-  private val pollingConsumer = new PollingConsumer(topics)
+  private val pollingConsumer = PollingConsumer.start(topics)
   private val futurePool = FuturePool(Executors.newFixedThreadPool(5))
   private val appendsCounter = stats.counter("queue-service/appends")
 
-  private def respond(status: HttpResponseStatus, content: ChannelBuffer): DefaultHttpResponse = {
+  private def respond(status: HttpResponseStatus, content: ChannelBuffer): HttpResponse = {
     val response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, status)
     response.setContent(content)
     response
   }
 
-  private def respond(status: HttpResponseStatus, content: String): DefaultHttpResponse = 
+  private def respond(status: HttpResponseStatus, content: String): HttpResponse = 
     respond(status, ChannelBuffers.wrappedBuffer(content.getBytes))
 
   def appendMessage(req: HttpRequest, topic: String): Future[HttpResponse] = futurePool.apply {
@@ -38,7 +39,7 @@ class QueueService(logPath: String, stats: StatsReceiver) extends Service[HttpRe
       respond(BAD_REQUEST, s"content expected")
     } else {
       stats.time("queue-service/batch_append_duration") {
-        val messageSet = AppendMessageSet(content)
+        val messageSet = TransferableMessageSet(content)
         topics.getProducer(topic).append(messageSet)
         appendsCounter.incr(messageSet.count)
       }
@@ -47,28 +48,24 @@ class QueueService(logPath: String, stats: StatsReceiver) extends Service[HttpRe
   }
 
   def fetchMessages(topic: String, count: Int): Future[HttpResponse] = futurePool.apply {
-    topics.getConsumer(topic).next(count) match {
-      case Nil => respond(NO_CONTENT, s"queue for topic $topic is empty")
-      case messages => respond(OK, LengthPrefixEncoder(messages))
-    }
+    val messageSet = topics.getConsumer(topic).next(count)
+    QueueHttpResponse.ok(Some(messageSet))
   }
 
   def fetchMessages(topic: String, consumer: String, count: Int): Future[HttpResponse] = futurePool.apply {
-    topics.getConsumer(topic, consumer).next(count) match {
-      case Nil => respond(NO_CONTENT, s"queue for $topic is empty")
-      case messages => respond(OK, LengthPrefixEncoder(messages))
-    }
+    val messageSet = topics.getConsumer(topic, consumer).next(count)
+    QueueHttpResponse.ok(Some(messageSet))
   }
 
   def pollMessages(topic: String, count: Int): Future[HttpResponse] = {
-    pollingConsumer.request(topic, count, 10 seconds).recv.sync().map { messages =>
-      respond(OK, LengthPrefixEncoder(messages))
+    pollingConsumer.request(topic, count, 10 seconds).recv.sync().map { messageSet =>
+      QueueHttpResponse.ok(Some(messageSet))
     }
   }
 
   def pollMessages(topic: String, consumer: String, count: Int): Future[HttpResponse] = {
-    pollingConsumer.request(topic, Some(consumer), count, 10 seconds).recv.sync().map { messages =>
-      respond(OK, LengthPrefixEncoder(messages))
+    pollingConsumer.request(topic, Some(consumer), count, 10 seconds).recv.sync().map { messageSet =>
+      QueueHttpResponse.ok(Some(messageSet))
     }
   }
 

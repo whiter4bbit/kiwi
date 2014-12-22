@@ -8,7 +8,7 @@ organization := "phi-org"
 
 version := "0.1"
 
-scalaVersion := "2.10.3"
+scalaVersion := "2.11.4"
 
 scalacOptions := Seq("-feature", "-language:implicitConversions", "-language:postfixOps")
 
@@ -19,7 +19,7 @@ initialCommands in Compile := """
 |import phi._""".stripMargin
 
 libraryDependencies ++= Seq(
-  "com.twitter" %% "finagle-stats" % "6.22.0",
-  "com.twitter" %% "twitter-server" % "1.8.0",
+  "com.twitter" %% "finagle-stats" % "6.24.1-SNAPSHOT",
+  "com.twitter" %% "twitter-server" % "1.9.0",
   "org.scalatest" %% "scalatest" % "2.2.1" % "test"
 )
