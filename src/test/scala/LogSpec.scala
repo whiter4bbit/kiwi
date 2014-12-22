@@ -13,8 +13,7 @@ class LogSpec extends FlatSpec with Matchers {
       val messages = (0 until 10).map(i => s"message-$i".getBytes).toList
       messages.foreach(log.append)
 
-      val offset = new LogOffset(dir, "topic-1")
-      val readMessages = log.read(offset, 10).messages
+      val readMessages = log.read(0L, 10).messages
 
       readMessages.map(_.payload.deep) should be (messages.map(_.deep))
     }
@@ -33,8 +32,7 @@ class LogSpec extends FlatSpec with Matchers {
 
       val log2 = Log.open(dir, "topic-1")
       
-      val offset = new LogOffset(dir, "topic-1")
-      val readMessages = log2.read(offset, 10).messages
+      val readMessages = log2.read(0L, 10).messages
 
       readMessages.size should be (9)
     }

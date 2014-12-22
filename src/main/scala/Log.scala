@@ -69,8 +69,8 @@ class Log private (baseDir: Path, name: String) {
     }
   }
 
-  def read(offset: LogOffset, max: Int): LogSegmentView = {
-    new LogSegmentView(channel, offset.get(), max)
+  def read(offset: Long, max: Int): LogSegmentView = {
+    new LogSegmentView(channel, offset, max)
   }
 
   def close(): Unit = {

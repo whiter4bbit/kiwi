@@ -3,7 +3,7 @@ package phi.message
 import java.nio.channels.FileChannel
 import scala.annotation.tailrec
 
-trait LazyMessage {
+trait MessageRef {
   def getOffset: Long
   def getLength: Int
   def getPayload: Array[Byte]
@@ -11,17 +11,17 @@ trait LazyMessage {
 }
 
 class MessageReader(private val newIterator: () => MessageIterator) {
-  def foldLeft[A](zero: A)(f: (A, LazyMessage) => A): A = {
+  def foldLeft[A](zero: A)(f: (A, MessageRef) => A): A = {
     val iter = newIterator()
 
-    val message = new LazyMessage {
+    val message = new MessageRef {
       def getOffset = iter.getOffset
       def getLength = iter.getLength
       def getPayload = iter.getPayload
       def getPosition = iter.getPosition
     }
 
-    @tailrec def fold(zero: A)(f: (A, LazyMessage) => A): A = if (iter.next) {
+    @tailrec def fold(zero: A)(f: (A, MessageRef) => A): A = if (iter.next) {
       fold(f(zero, message))(f)
     } else zero
 

@@ -34,13 +34,12 @@ object CachedResource {
 
 class PersistentQueue(baseDir: Path) {
   private val logs = CachedResource((topic: String) => Log.open(baseDir, topic))
-  private val globalOffsets = CachedResource((topic: String) => new LogOffset(baseDir, topic))
-  private val consumerOffsets = CachedResource((p: (String, String)) => new LogOffset(baseDir, p._1, Some(p._2)))
+  private val offsetStorage = CachedResource((topic: String) => LogOffsetStorage.open(baseDir, topic))
   private val producers = CachedResource((topic: String) => new Producer(logs.get(topic)))
-  private val globalConsumers = CachedResource((topic: String) => new GlobalConsumer(logs.get(topic), globalOffsets.get(topic)))
+  private val globalConsumers = CachedResource((topic: String) => new GlobalConsumer(logs.get(topic), offsetStorage.get(topic)))
   private val offsetConsumers = CachedResource { p: (String, String) =>
     val (topic, consumer) = p
-    new OffsetConsumer(logs.get(topic), consumerOffsets.get(topic, consumer))
+    new OffsetConsumer(logs.get(topic), consumer, offsetStorage.get(topic))
   }
 
   def getConsumer(topic: String) =
@@ -49,8 +48,8 @@ class PersistentQueue(baseDir: Path) {
   def getConsumer(topic: String, consumer: String) =
     offsetConsumers.get(topic, consumer)
 
-  def getOffset(topic: String, consumer: String) =
-    consumerOffsets.get(topic, consumer)
+  def getOffsetStorage(topic: String) =
+    offsetStorage.get(topic)
 
   def getProducer(topic: String) =
     producers.get(topic)

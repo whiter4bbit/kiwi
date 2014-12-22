@@ -71,7 +71,7 @@ class QueueService(logPath: String, stats: StatsReceiver) extends Service[HttpRe
 
   def commitOffset(req: HttpRequest, topic: String, consumer: String): Future[HttpResponse] = futurePool.apply {
     val offsetStr = new String(req.getContent.array)
-    topics.getOffset(topic, consumer).set(offsetStr.toInt)
+    topics.getOffsetStorage(topic).put(consumer, offsetStr.toLong)
     respond(OK, "")
   }
 
