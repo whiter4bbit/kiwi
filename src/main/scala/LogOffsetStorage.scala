@@ -11,10 +11,11 @@ import phi.io._
 
 private case class EntryPointer(valueOffset: Int)
 
-class LogOffsetStorage private (dir: Path, topic: String) {
+class LogOffsetStorage private (dir: Path, topic: String, flushIntervalUpdates: Int) {
   private var buffer: MappedByteBuffer = _
   private val entries = HashMap.empty[String, EntryPointer]
   private var storageFile: PhiPath = _
+  private var updatesCount: Long = 0
 
   private val ResizeStep = 1024 * 1024
   private val InitialSize = 1024 * 1024
@@ -106,6 +107,12 @@ class LogOffsetStorage private (dir: Path, topic: String) {
         entries += (new String(key) -> EntryPointer(valueOffset))
 
         buffer.putInt(0, buffer.getInt(0) + 1)
+
+        updatesCount += 1
+
+        if (updatesCount % flushIntervalUpdates == 0) {
+          flush()
+        }
       }
     }
   }
@@ -127,18 +134,18 @@ class LogOffsetStorage private (dir: Path, topic: String) {
     }
   }
 
-  def sync(): Unit = {
+  def flush(): Unit = {
     buffer.force
   }
 
   def close(): Unit = {
-    sync()
+    flush()
   }
 }
 
 object LogOffsetStorage {
-  def open(dir: Path, topic: String): LogOffsetStorage = {
-    val storage = new LogOffsetStorage(dir, topic)
+  def open(dir: Path, topic: String, flushIntervalUpdates: Int = 1000): LogOffsetStorage = {
+    val storage = new LogOffsetStorage(dir, topic, flushIntervalUpdates)
     storage.init
     storage
   }
@@ -148,7 +155,7 @@ object LogOffsetStorage {
 
 object LogOffsetStorageCrashWriter {
   def main(args: Array[String]): Unit = {
-    val storage = LogOffsetStorage.open("offset-test" / "logs", "topic-1")
+    val storage = LogOffsetStorage.open("offset-test" / "logs", "topic-1", 1000)
 
     def random(n: Int): Int = new java.util.Random().nextInt(n)
 
@@ -162,7 +169,7 @@ object LogOffsetStorageCrashWriter {
 
 object LogOffsetStorageCrashReader {
   def main(args: Array[String]): Unit = {
-    val storage = LogOffsetStorage.open("offset-test" / "logs", "topic-1")
+    val storage = LogOffsetStorage.open("offset-test" / "logs", "topic-1", 1000)
 
     val survived = (0 until 10000).map(i => storage.get(s"consumer-$i")).toList.flatten
     println(s"survived = ${survived.size}")

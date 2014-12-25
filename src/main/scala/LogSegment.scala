@@ -48,6 +48,10 @@ class LogSegment(file: JFile) {
     }
   }
 
+  def flush(): Unit = this.synchronized {
+    raf.getFD.sync
+  }
+
   def close(): Unit = {
     if (raf != null) raf.close
   }

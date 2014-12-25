@@ -1,5 +1,7 @@
 package phi
 
+import com.twitter.conversions.storage._
+
 import phi.message.Message
 import phi.io._
 import PhiFiles._
@@ -9,7 +11,7 @@ import org.scalatest._
 class LogSpec extends FlatSpec with Matchers {
   "Log" should "append messages" in {
     withTempDir("log-spec") { dir =>
-      val log = Log.open(dir, "topic-1")
+      val log = Log.open(dir, "topic-1", 100 megabytes)
       val messages = (0 until 10).map(i => s"message-$i".getBytes).toList
       messages.foreach(log.append)
 
@@ -21,7 +23,7 @@ class LogSpec extends FlatSpec with Matchers {
 
   "Log" should "rotate old segment and continue write to new" in {
     withTempDir("log-spec") { dir =>
-      val log = Log.open(dir, "topic-1", 1024)
+      val log = Log.open(dir, "topic-1", 1 kilobyte)
       
       val fourBytes = Array[Byte](1,1,1,1)
 
@@ -35,7 +37,7 @@ class LogSpec extends FlatSpec with Matchers {
 
   "Log" should "choose correct segment for given offset during read" in {
     withTempDir("log-spec") { dir =>
-      val log = Log.open(dir, "topic-1", 1024)
+      val log = Log.open(dir, "topic-1", 1 kilobyte)
 
       val first = Array[Byte](1,1,1,1)
       val second = Array[Byte](2,2,2,2)
