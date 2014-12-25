@@ -9,9 +9,10 @@ import phi.client._
 import phi.message.EagerMessageSet
 
 object CountProducer {
-  case class Options(producers: Int = 5, topic: String = "example-topic", messages: Long = Long.MaxValue)
+  case class Options(producers: Int = 5, topic: String = "example-topic", messages: Long = Long.MaxValue, address: String = "localhost:8080")
 
   def parse(args: List[String], options: Options = Options()): Options = args match {
+    case "-address"::address::tail => parse(tail, options.copy(address = address))
     case "-producers"::producers::tail => parse(tail, options.copy(producers = producers.toInt))
     case "-topic"::topic::tail => parse(tail, options.copy(topic = topic))
     case "-messages"::messages::tail => parse(tail, options.copy(messages = messages.toLong))
@@ -33,16 +34,17 @@ object CountProducer {
       }
     }
 
-    (0 until options.producers).foreach { id => sendAll(QueueClient("localhost:8080").producer(options.topic), id, 0) }
+    (0 until options.producers).foreach { id => sendAll(QueueClient(options.address).producer(options.topic), id, 0) }
 
     latch.await
   }
 }
 
 object CountConsumer {
-  case class Options(consumers: Int = 5, producers: Int = 5, messages: Long = Long.MaxValue, topic: String = "example-topic", tx: Boolean = false)
+  case class Options(consumers: Int = 5, producers: Int = 5, messages: Long = Long.MaxValue, topic: String = "example-topic", tx: Boolean = false, address: String = "localhost:8080")
 
   def parse(args: List[String], options: Options = Options()): Options = args match {
+    case "-address"::address::tail => parse(tail, options.copy(address = address))
     case "-consumers"::count::tail => parse(tail, options.copy(consumers = count.toInt))
     case "-producers"::count::tail => parse(tail, options.copy(producers = count.toInt))
     case "-topic"::topic::tail => parse(tail, options.copy(topic = topic))
@@ -90,7 +92,7 @@ object CountConsumer {
     }
 
     (0 until options.consumers).foreach { i => 
-      def client = QueueClient("localhost:8080")
+      def client = QueueClient(options.address)
       if (options.tx) 
         txReceive(client.consumer(options.topic, s"consumer-$i"))
       else
