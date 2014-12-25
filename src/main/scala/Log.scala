@@ -3,90 +3,75 @@ package phi
 import java.nio.channels.FileChannel
 import java.nio.file.{Files, Path, Paths}
 import java.io.{File, IOException, RandomAccessFile}
+import java.util.TreeMap
 
 import scala.collection.mutable.ListBuffer
 
 import phi.io._
 import phi.message.TransferableMessageSet
 
-class Log private (baseDir: Path, name: String) {
+class Log private (baseDir: Path, name: String, maxSegmentSize: Int) {
   require(name.length > 0, "Name should be defined")
   require(baseDir != null, "Base directory should be defined")
 
-  private var raf: RandomAccessFile = _
-  private var channel: FileChannel = _
-  private var journalFile: File = _
+  private val segments = new TreeMap[Long, LogSegment]
+
+  private val journalPath = baseDir / name
 
   private def init(): Unit = {
-    val journalPath = baseDir.resolve(name)
-
     if (!journalPath.exists) {
       journalPath.createDirectories
     }
 
-    try {
-      journalFile = journalPath.resolve("journal.bin").toFile
-      raf = new RandomAccessFile(journalFile, "rw")
-      channel = raf.getChannel
-      recover()
-      raf.seek(raf.length)
-    } catch {
-      case e: IOException => cleanup(); throw e
+    journalPath.listFiles(LogSegment.isLogSegment).foreach { path =>
+      val segment = LogSegment.open(path.toFile)
+      segments.put(segment.offset, segment)
+    }
+
+    if (segments.isEmpty) {
+      val segment = LogSegment.create(journalPath, 0L)
+      segments.put(0L, segment)
     }
   }
 
-  private def recover(): Unit = {
-    def truncate(length: Long) = channel.truncate(length)
-    def remaining = raf.length - raf.getFilePointer
-    def offset = raf.getFilePointer
+  private def maybeRotate(): Unit = {
+    val lastOffset = segments.lastKey
+    val lastSegment = segments.get(lastOffset)
+    if (lastSegment.length >= maxSegmentSize) {
+      val newOffset = lastOffset + lastSegment.length
+      val newSegment = LogSegment.create(journalPath, newOffset)
 
-    def check(): Unit = {
-      if (remaining > 4) {
-        val length = raf.readInt
-        if (remaining >= length) {
-          raf.seek(offset + length)
-          check()
-        } else truncate(offset - 4)
-      } else truncate(offset)
+      segments.put(newOffset, newSegment)
     }
-    check()
   }
 
   def append(payload: Array[Byte]): Unit = this.synchronized {
-    try {
-      raf.writeInt(payload.size)
-      raf.write(payload)
-    } catch {
-      case e: IOException => cleanup(); throw e
-    }
+    maybeRotate()
+
+    val lastOffset = segments.lastKey
+    segments.get(lastOffset).append(payload)
   }
 
   def append(set: TransferableMessageSet): Unit = this.synchronized {
-    try {
-      set.transferTo(channel)
-    } catch {
-      case e: IOException => cleanup(); throw e
-    }
+    maybeRotate() 
+
+    val lastOffset = segments.lastKey
+    segments.get(lastOffset).append(set)
   }
 
   def read(offset: Long, max: Int): LogSegmentView = {
-    new LogSegmentView(channel, offset, max)
+    val segmentOffset = segments.floorKey(offset)
+    segments.get(segmentOffset).read(offset, max)
   }
 
   def close(): Unit = {
-    cleanup()
-  }
-
-  private def cleanup(): Unit = {
-    if (raf != null) {
-      raf.close
-    }
+    
   }
 }
 
 object Log {
-  def open(baseDir: Path, name: String): Log = {
-    val log = new Log(baseDir, name)
+  def open(baseDir: Path, name: String, maxSegmentSize: Int = 1024 * 1024): Log = {
+    val log = new Log(baseDir, name, maxSegmentSize)
     log.init()
     log
   }

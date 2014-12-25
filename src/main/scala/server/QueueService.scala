@@ -15,7 +15,7 @@ import java.util.concurrent.Executors
 import java.net.InetSocketAddress
 import scala.concurrent.duration._
 
-import phi.{Log, LogView, PersistentQueue, PollingConsumer, AppendMessageSet}
+import phi.{Log, PersistentQueue, PollingConsumer}
 import phi.message.TransferableMessageSet
 
 class QueueService(logPath: String, stats: StatsReceiver) extends Service[HttpRequest, HttpResponse] {

@@ -2,7 +2,7 @@ package phi.io
 
 import java.nio.file.{Path => JPath, Paths => JPaths,Files => JFiles, FileVisitor, FileVisitResult}
 import java.nio.file.attribute.BasicFileAttributes
-import java.io.{File => JFile, RandomAccessFile, IOException}
+import java.io.{File => JFile, FileFilter => JFileFilter, RandomAccessFile, IOException}
 
 case class PhiPath(path: JPath) {
   def exists: Boolean = JFiles.exists(path)
@@ -51,11 +51,9 @@ case class PhiPath(path: JPath) {
   def toFile() = {
     path.toFile
   }
-}
-
-trait PhiPathImplicits {
-  implicit def jpath2PhiPath(path: JPath) = PhiPath(path)
-  implicit def jfile2PhiPath(file: JFile) = PhiPath(file.toPath)
-  implicit def string2PhiPath(seg: String) = PhiPath(JPaths.get(seg))
-  implicit def phiPath2JPath(phiPath: PhiPath) = phiPath.path
+  def listFiles(f: (JFile => Boolean)): List[PhiPath] = {
+    toFile.listFiles(new JFileFilter() {
+      def accept(file: JFile) = f(file)
+    }).map(file => PhiPath(file.toPath)).toList
+  }
 }

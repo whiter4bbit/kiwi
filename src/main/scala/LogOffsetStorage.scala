@@ -149,8 +149,14 @@ object LogOffsetStorage {
 object LogOffsetStorageCrashWriter {
   def main(args: Array[String]): Unit = {
     val storage = LogOffsetStorage.open("offset-test" / "logs", "topic-1")
-    
-    (0 until 10000).foreach(i => storage.put(s"consumer-$i", i))
+
+    def random(n: Int): Int = new java.util.Random().nextInt(n)
+
+    while (true) {
+      val i = random(10000)
+      storage.put(s"consumer-$i", i)
+      Thread.sleep(10)
+    }
   }
 }
 

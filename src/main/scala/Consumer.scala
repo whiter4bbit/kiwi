@@ -9,7 +9,8 @@ sealed trait Consumer {
 }
 
 class GlobalConsumer(log: Log, offsetStorage: LogOffsetStorage) extends Consumer {
-  val GlobalConsumer = "_global"
+  private val GlobalConsumer = "_global"
+
   def next(n: Int): FileChannelMessagesPointer = this.synchronized {
     val offset = offsetStorage.get(GlobalConsumer, 0L)
 

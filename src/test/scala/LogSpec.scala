@@ -19,22 +19,37 @@ class LogSpec extends FlatSpec with Matchers {
     }
   }
 
-  "Log" should "recover corrupted journal" in {
+  "Log" should "rotate old segment and continue write to new" in {
     withTempDir("log-spec") { dir =>
-      val log1 = Log.open(dir, "topic-1")
-      val messages = (0 until 10).map(i => Array[Byte](1, 2, 3, 4)).toList
-      messages.foreach(log1.append)
-      log1.close
-
-      val journalFile = (dir / "topic-1" / "journal.bin").newRandomAccessFile("rw")
-      journalFile.getChannel.truncate(journalFile.length - 2)
-      journalFile.close
-
-      val log2 = Log.open(dir, "topic-1")
+      val log = Log.open(dir, "topic-1", 1024)
       
-      val readMessages = log2.read(0L, 10).messages
+      val fourBytes = Array[Byte](1,1,1,1)
 
-      readMessages.size should be (9)
+      (0 until 128 * 3).foreach { _ =>
+        log.append(fourBytes)
+      }
+
+      (dir / "topic-1").listFiles(LogSegment.isLogSegment).size should be (3)
+    }
+  }
+
+  "Log" should "choose correct segment for given offset during read" in {
+    withTempDir("log-spec") { dir =>
+      val log = Log.open(dir, "topic-1", 1024)
+
+      val first = Array[Byte](1,1,1,1)
+      val second = Array[Byte](2,2,2,2)
+      val third = Array[Byte](3,3,3,3)
+
+      (0 until 128).foreach(_ => log.append(first))
+      (0 until 128).foreach(_ => log.append(second))
+      (0 until 128).foreach(_ => log.append(third))
+
+      log.read(0, 128).messages.map(_.payload.deep) should be (List.fill(128)(first.deep))
+      log.read(128 * (4 + 4), 128).messages.map(_.payload.deep) should be (List.fill(128)(second.deep))
+      log.read(2 * 128 * (4 + 4), 128).messages.map(_.payload.deep) should be (List.fill(128)(third.deep))
+
+      (dir / "topic-1").listFiles(LogSegment.isLogSegment).map(_.toFile.length) should be (List(1024, 1024, 1024))
     }
   }
 }
