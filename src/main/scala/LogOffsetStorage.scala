@@ -154,24 +154,35 @@ object LogOffsetStorage {
 //
 
 object LogOffsetStorageCrashWriter {
+  val ConsumersCount = 1000
+
   def main(args: Array[String]): Unit = {
     val storage = LogOffsetStorage.open("offset-test" / "logs", "topic-1", 1000)
 
-    def random(n: Int): Int = new java.util.Random().nextInt(n)
-
-    while (true) {
-      val i = random(10000)
-      storage.put(s"consumer-$i", i)
-      Thread.sleep(10)
+    def round(n: Long): Unit = {
+      (0 until ConsumersCount).foreach(i => storage.put(s"consumer-$i", n))
+      println(n)
+      Thread.sleep(100)
+      round(n + 1)
     }
+
+    round(0)
   }
 }
 
 object LogOffsetStorageCrashReader {
+  val ConsumersCount = 1000
+
   def main(args: Array[String]): Unit = {
     val storage = LogOffsetStorage.open("offset-test" / "logs", "topic-1", 1000)
+    val min = args(0).toInt
 
-    val survived = (0 until 10000).map(i => storage.get(s"consumer-$i")).toList.flatten
-    println(s"survived = ${survived.size}")
+    (0 until ConsumersCount).foreach { i =>
+      storage.get(s"consumer-$i") match {
+        case Some(x) if x < min => println(s"consumer-$i = $x")
+        case None => println(s"consumer-$i = None")
+        case _ => /* pass */
+      }
+    }
   }
 }

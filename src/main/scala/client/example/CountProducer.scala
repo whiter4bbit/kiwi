@@ -9,7 +9,8 @@ import phi.client._
 import phi.message.EagerMessageSet
 
 object CountProducer {
-  case class Options(producers: Int = 5, topic: String = "example-topic", messages: Long = Long.MaxValue, address: String = "localhost:8080")
+  case class Options(producers: Int = 5, topic: String = "example-topic", messages: Long = Long.MaxValue, 
+    address: String = "localhost:8080")
 
   def parse(args: List[String], options: Options = Options()): Options = args match {
     case "-address"::address::tail => parse(tail, options.copy(address = address))
@@ -41,7 +42,8 @@ object CountProducer {
 }
 
 object CountConsumer {
-  case class Options(consumers: Int = 5, producers: Int = 5, messages: Long = Long.MaxValue, topic: String = "example-topic", tx: Boolean = false, address: String = "localhost:8080")
+  case class Options(consumers: Int = 5, producers: Int = 5, messages: Long = Long.MaxValue, topic: String = "example-topic", 
+    tx: Boolean = false, address: String = "localhost:8080")
 
   def parse(args: List[String], options: Options = Options()): Options = args match {
     case "-address"::address::tail => parse(tail, options.copy(address = address))
