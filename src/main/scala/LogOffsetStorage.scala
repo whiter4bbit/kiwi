@@ -159,10 +159,12 @@ object LogOffsetStorageCrashWriter {
   def main(args: Array[String]): Unit = {
     val storage = LogOffsetStorage.open("offset-test" / "logs", "topic-1", 1000)
 
+    val sleep = args(0).toInt
+
     def round(n: Long): Unit = {
       (0 until ConsumersCount).foreach(i => storage.put(s"consumer-$i", n))
       println(n)
-      Thread.sleep(100)
+      Thread.sleep(sleep)
       round(n + 1)
     }
 
