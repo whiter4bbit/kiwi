@@ -15,6 +15,7 @@ class QueueHttpResponseHandler extends ChannelDownstreamHandler {
           httpResponse.pointer match {
             case Some(pointer) => {
               HttpHeaders.addHeader(httpResponse, "X-Start-Offset", pointer.offset)
+              HttpHeaders.addHeader(httpResponse, "X-Next-Offset", pointer.offset + pointer.region.count)
               HttpHeaders.setContentLength(httpResponse, pointer.region.count)
               Channels.write(ctx, e.getFuture, httpResponse)
               

@@ -6,7 +6,6 @@ import java.util.concurrent.CountDownLatch
 import com.twitter.util.{Return, Throw}
 
 import phi.client._
-import phi.message.EagerMessageSet
 
 object CountProducer {
   case class Options(producers: Int = 5, topic: String = "example-topic", messages: Long = Long.MaxValue, 
@@ -42,16 +41,15 @@ object CountProducer {
 }
 
 object CountConsumer {
-  case class Options(consumers: Int = 5, producers: Int = 5, messages: Long = Long.MaxValue, topic: String = "example-topic", 
-    tx: Boolean = false, address: String = "localhost:8080")
+  case class Options(consumers: Int = 5, messages: Long = Long.MaxValue, topic: String = "example-topic", 
+    atLeastOnce: Boolean = false, address: String = "localhost:8080")
 
   def parse(args: List[String], options: Options = Options()): Options = args match {
     case "-address"::address::tail => parse(tail, options.copy(address = address))
     case "-consumers"::count::tail => parse(tail, options.copy(consumers = count.toInt))
-    case "-producers"::count::tail => parse(tail, options.copy(producers = count.toInt))
     case "-topic"::topic::tail => parse(tail, options.copy(topic = topic))
     case "-messages"::messages::tail => parse(tail, options.copy(messages = messages.toLong))
-    case "-tx"::tx::tail => parse(tail, options.copy(tx = tx.toBoolean))
+    case "-at-least-once"::atLeastOnce::tail => parse(tail, options.copy(atLeastOnce = atLeastOnce.toBoolean))
     case Nil => options
     case _ => throw new Error
   }
@@ -59,10 +57,12 @@ object CountConsumer {
   def main(args: Array[String]): Unit = {
     val options = parse(args.toList)
 
-    val count = new AtomicLong(options.messages)
+    val count = new AtomicLong(
+      if (options.atLeastOnce) options.messages * options.consumers else options.messages      
+    )
     val latch = new CountDownLatch(1)
     
-    def receive(consumer: QueueGlobalConsumer): Unit = {
+    def receive(consumer: GlobalQueueConsumer): Unit = {
       consumer.poll(1).map { set =>
         set.foreach { message => 
           println(s"${new String(message.payload)}")
@@ -76,17 +76,14 @@ object CountConsumer {
       }
     }
 
-    def txReceive(consumer: QueueConsumer): Unit = {
-      consumer.poll(1).map { messages =>
+    def atLeastOnceReceive(consumer: QueueConsumer): Unit = {
+      consumer.poll(1) { messages =>
         messages.foreach { message =>
           println(s"${new String(message.payload)}")
           if (count.decrementAndGet == 0) latch.countDown
         }
-        messages.lastOption.map { messageAndOffset =>
-          consumer.commit(messageAndOffset.offset)
-        }
       } ensure {
-        txReceive(consumer)
+        atLeastOnceReceive(consumer)
       } respond {
         case Return(_) => //pass
         case Throw(t) => t.printStackTrace
@@ -95,8 +92,8 @@ object CountConsumer {
 
     (0 until options.consumers).foreach { i => 
       def client = QueueClient(options.address)
-      if (options.tx) 
-        txReceive(client.consumer(options.topic, s"consumer-$i"))
+      if (options.atLeastOnce) 
+        atLeastOnceReceive(client.consumer(options.topic, s"consumer-$i"))
       else
         receive(client.consumer(options.topic))
     }

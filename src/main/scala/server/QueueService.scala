@@ -2,7 +2,8 @@ package phi.server
 
 import com.twitter.finagle.Service
 import com.twitter.finagle.http.path._
-import com.twitter.finagle.http.{Http, Request, RequestParamMap, Method}
+import com.twitter.finagle.http.{Http, Request, RequestParamMap}
+import com.twitter.finagle.http.Method._
 import com.twitter.finagle.builder.{ServerBuilder}
 import com.twitter.finagle.stats.StatsReceiver
 import com.twitter.util.{Await, Future, FuturePool}
@@ -12,7 +13,6 @@ import org.jboss.netty.buffer.{ChannelBuffer, ChannelBuffers}
 import HttpResponseStatus.{OK, BAD_REQUEST, NO_CONTENT}
 import java.nio.file.Paths
 import java.util.concurrent.Executors
-import java.net.InetSocketAddress
 import scala.concurrent.duration._
 
 import phi.{Log, PersistentQueue, PollingConsumer}
@@ -22,7 +22,8 @@ class QueueService(logPath: String, stats: StatsReceiver) extends Service[HttpRe
   private val topics = new PersistentQueue(Paths.get(logPath))
   private val pollingConsumer = PollingConsumer.start(topics)
   private val futurePool = FuturePool(Executors.newFixedThreadPool(5))
-  private val appendsCounter = stats.counter("queue-service/appends")
+  private val appendThroughputCounter = stats.counter("queue-service/append-throughput")
+  private val appendRequestsCounter = stats.counter("queue-service/append-request-count")
 
   private def respond(status: HttpResponseStatus, content: ChannelBuffer): HttpResponse = {
     val response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, status)
@@ -38,10 +39,11 @@ class QueueService(logPath: String, stats: StatsReceiver) extends Service[HttpRe
     if (content == null) {
       respond(BAD_REQUEST, s"content expected")
     } else {
+      appendRequestsCounter.incr()
       stats.time("queue-service/batch_append_duration") {
         val messageSet = TransferableMessageSet(content)
         topics.getProducer(topic).append(messageSet)
-        appendsCounter.incr(messageSet.count)
+        appendThroughputCounter.incr(messageSet.count)
       }
       respond(OK, s"")
     }
@@ -69,7 +71,7 @@ class QueueService(logPath: String, stats: StatsReceiver) extends Service[HttpRe
     }
   }
 
-  def commitOffset(req: HttpRequest, topic: String, consumer: String): Future[HttpResponse] = futurePool.apply {
+  def updateOffset(req: HttpRequest, topic: String, consumer: String): Future[HttpResponse] = futurePool.apply {
     val offsetStr = new String(req.getContent.array)
     topics.getOffsetStorage(topic).put(consumer, offsetStr.toLong)
     respond(OK, "")
@@ -77,14 +79,14 @@ class QueueService(logPath: String, stats: StatsReceiver) extends Service[HttpRe
 
   def apply(req: HttpRequest): Future[HttpResponse] = {
     (req.getMethod, Path(req.getUri)) match {
-      case Method.Post -> Root / topic => appendMessage(req, topic)
-      case Method.Get -> Root / topic => fetchMessages(topic, 1)
-      case Method.Get -> Root / topic / count => fetchMessages(topic, count.toInt)
-      case Method.Get -> Root / topic / "poll" / count => pollMessages(topic, count.toInt)
-      case Method.Get -> Root / topic / "consumer" / consumer => fetchMessages(topic, consumer, 1)
-      case Method.Post -> Root / topic / "consumer" / consumer / "commit" => commitOffset(req, topic, consumer)
-      case Method.Get -> Root / topic / "consumer" / consumer / "poll" / count => pollMessages(topic, consumer, count.toInt)
-      case Method.Get -> Root / topic / "consumer" / consumer / count => fetchMessages(topic, consumer, count.toInt)
+      case Post -> Root / topic => appendMessage(req, topic)
+      case Get -> Root / topic => fetchMessages(topic, 1)
+      case Get -> Root / topic / count => fetchMessages(topic, count.toInt)
+      case Get -> Root / topic / "poll" / count => pollMessages(topic, count.toInt)
+      case Get -> Root / topic / "consumer" / consumer => fetchMessages(topic, consumer, 1)
+      case Post -> Root / topic / "consumer" / consumer / "offset" => updateOffset(req, topic, consumer)
+      case Get -> Root / topic / "consumer" / consumer / "poll" / count => pollMessages(topic, consumer, count.toInt)
+      case Get -> Root / topic / "consumer" / consumer / count => fetchMessages(topic, consumer, count.toInt)
       case _ => Future.value(respond(BAD_REQUEST, "Bad request"))
     }
   }

@@ -32,9 +32,11 @@ class PersistentQueueSpec extends FlatSpec with Matchers {
         def run(): Unit = {
           while (running) {
             val pointer = queue.getConsumer("ordered-topic").next(5)
-            Message.fromPointer(pointer).foreach { message => 
-              latch.countDown
-              received(new String(message.payload).toInt).incrementAndGet()
+            Message.fromPointer(pointer).map { messages =>
+              messages.foreach { message =>
+                latch.countDown
+                received(new String(message.payload).toInt).incrementAndGet()
+              }
             }
           }
         }

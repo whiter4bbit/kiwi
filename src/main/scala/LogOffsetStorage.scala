@@ -9,9 +9,9 @@ import scala.collection.mutable.HashMap
 
 import phi.io._
 
-private case class EntryPointer(valueOffset: Int)
-
 class LogOffsetStorage private (dir: Path, topic: String, flushIntervalUpdates: Int) {
+  import LogOffsetStorage._
+
   private var buffer: MappedByteBuffer = _
   private val entries = HashMap.empty[String, EntryPointer]
   private var storageFile: PhiPath = _
@@ -144,6 +144,8 @@ class LogOffsetStorage private (dir: Path, topic: String, flushIntervalUpdates: 
 }
 
 object LogOffsetStorage {
+  private case class EntryPointer(valueOffset: Int)
+
   def open(dir: Path, topic: String, flushIntervalUpdates: Int = 1000): LogOffsetStorage = {
     val storage = new LogOffsetStorage(dir, topic, flushIntervalUpdates)
     storage.init

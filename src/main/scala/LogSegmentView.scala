@@ -9,7 +9,8 @@ import phi.message.{MessageAndOffset, FileChannelMessagesPointer, MessageReader,
 
 class LogSegmentView(channel: FileChannel, offset: Long, max: Int) {
   def pointer: FileChannelMessagesPointer = {
-    val (count, lastOffset) = MessageReader(channel, offset).limit(max).foldLeft((0, offset)) { (countAndOffset, message) =>
+    val reader = MessageReader(channel, offset).limit(max)
+    val (count, lastOffset) = reader.foldLeft((0, offset)) { (countAndOffset, message) =>
       (countAndOffset._1 + 1, message.getPosition)
     }
 
@@ -17,8 +18,8 @@ class LogSegmentView(channel: FileChannel, offset: Long, max: Int) {
   }
 
   def messages: List[MessageAndOffset] = {
-    MessageReader(channel, offset).foldLeft(List.empty[MessageAndOffset]) { (list, message) => 
-      list :+ MessageAndOffset(message.getOffset, message.getPayload)
+    MessageReader(channel, offset).limit(max).foldLeft(List.empty[MessageAndOffset]) { (list, message) => 
+      list :+ MessageAndOffset(message.getOffset, message.getPosition, message.getPayload)
     }
   }
 }

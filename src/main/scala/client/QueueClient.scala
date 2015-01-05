@@ -13,9 +13,11 @@ class QueueClient(url: String) {
 
   def producer(topic: String) = new QueueProducer(client, topic)
 
+  def simpleConsumer(topic: String, id: String) = new SimpleQueueConsumer(client, topic, id)
+
   def consumer(topic: String, id: String) = new QueueConsumer(client, topic, id)
 
-  def consumer(topic: String) = new QueueGlobalConsumer(client, topic)
+  def consumer(topic: String) = new GlobalQueueConsumer(client, topic)
 }
 
 object QueueClient {

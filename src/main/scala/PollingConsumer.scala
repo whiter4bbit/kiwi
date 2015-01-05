@@ -2,27 +2,38 @@ package phi
 
 import com.twitter.concurrent.{Broker, Offer}
 
+import scala.annotation.tailrec
 import scala.concurrent.duration._
+
+import java.util.concurrent.locks.ReentrantLock
+import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
 
 import phi.message.FileChannelMessagesPointer
 
-class PollingConsumer private (queue: PersistentQueue) {
-  case class Request(topic: String, consumer: Option[String], count: Int, broker: Broker[FileChannelMessagesPointer], deadline: Deadline)
+class PollingConsumer private (queue: PersistentQueue, interval: Duration = 100 milliseconds) {
+  import PollingConsumer._
+
+  private val lock = new ReentrantLock
 
   private var requests = List.empty[Request]
 
-  private class PollThread extends Thread {
-    override def run(): Unit = tick()
-  }
+  private val scheduler = Executors.newSingleThreadScheduledExecutor
 
   private def start(): Unit = {
-    new PollThread().start()
+    scheduler.scheduleWithFixedDelay(tick, 0, interval.toMillis, TimeUnit.MILLISECONDS)
   }
 
-  private def process(requests: List[Request], pending: List[Request]): List[Request] = requests match {
-    case Request(_, _, 0, _, _)::tail => {
-      process(tail, pending)
+  private val tick = new Runnable() {
+    override def run(): Unit = {
+      lock.lock
+      try {
+        requests = process(requests, List.empty)
+      } finally lock.unlock
     }
+  }
+
+  @tailrec private def process(requests: List[Request], pending: List[Request]): List[Request] = requests match {
+    case request::tail if request.count == 0 => process(tail, pending)
     case Request(topic, consumer, count, broker, deadline)::tail if deadline.isOverdue => {
       val queueConsumer = consumer
           .map(queue.getConsumer(topic, _))
@@ -45,19 +56,13 @@ class PollingConsumer private (queue: PersistentQueue) {
     case Nil => pending
   }
 
-  private def tick(): Unit = {
-    this.synchronized {
-      requests = process(requests, List.empty)
-    }
-
-    Thread.sleep(100)
-    tick()
-  }
-
-  def request(topic: String, consumer: Option[String], count: Int, timeout: FiniteDuration): Broker[FileChannelMessagesPointer] = this.synchronized {
-    val broker = new Broker[FileChannelMessagesPointer]
-    requests = requests :+ Request(topic, consumer, count, broker, Deadline.now + timeout)
-    broker
+  def request(topic: String, consumer: Option[String], count: Int, timeout: FiniteDuration): Broker[FileChannelMessagesPointer] = {
+    lock.lock
+    try {
+      val broker = new Broker[FileChannelMessagesPointer]
+      requests = requests :+ Request(topic, consumer, count, broker, Deadline.now + timeout)
+      broker
+    } finally lock.unlock
   }
 
   def request(topic: String, count: Int, timeout: FiniteDuration): Broker[FileChannelMessagesPointer] = 
@@ -65,8 +70,10 @@ class PollingConsumer private (queue: PersistentQueue) {
 }
 
 object PollingConsumer {
-  def start(queue: PersistentQueue): PollingConsumer = {
-    val consumer = new PollingConsumer(queue)
+  private case class Request(topic: String, consumer: Option[String], count: Int, broker: Broker[FileChannelMessagesPointer], deadline: Deadline)
+
+  def start(queue: PersistentQueue, interval: Duration = 100 milliseconds): PollingConsumer = {
+    val consumer = new PollingConsumer(queue, interval)
     consumer.start()
     consumer
   }
