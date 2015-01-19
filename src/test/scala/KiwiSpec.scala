@@ -9,10 +9,10 @@ import phi.message.Message
 import phi.io._
 import PhiFiles._
 
-class PersistentQueueSpec extends FlatSpec with Matchers {
-  "PersistentQueue" should "guarantee at most once delivery for global consumers" in {
+class KiwiSpec extends FlatSpec with Matchers {
+  "Kiwi" should "guarantee at most once delivery for global consumers" in {
     withTempDir("persistent-queue-spec") { dir =>
-      val queue = new PersistentQueue(dir)
+      val queue = Kiwi.start(dir)
 
       val producer = queue.getProducer("ordered-topic")
 

@@ -56,4 +56,7 @@ case class PhiPath(path: JPath) {
       def accept(file: JFile) = f(file)
     }).map(file => PhiPath(file.toPath)).toList
   }
+  def listFiles(): List[PhiPath] = {
+    listFiles(_ => true)
+  }
 }

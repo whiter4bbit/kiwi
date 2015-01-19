@@ -17,13 +17,13 @@ class FileChannelIterator private[message] (channel: FileChannel, _position: Lon
   private var position = _position
 
   private def nextMessage: Option[(Int, Long)] = {
-    if (channel.read(lengthBuf, position) == 4) {
+    if (channel.read(lengthBuf, position) == Message.LengthSize) {
       lengthBuf.flip
       val length = lengthBuf.getInt
       lengthBuf.clear
 
-      if (channel.size() >= position + 4 + length) {
-        val lengthAndPayloadOffset = Some((length, position + 4))
+      if (channel.size() >= position + Message.LengthSize + length) {
+        val lengthAndPayloadOffset = Some((length, position + Message.LengthSize))
         position += 4 + length
         lengthAndPayloadOffset
       } else None
@@ -58,7 +58,7 @@ class FileChannelIterator private[message] (channel: FileChannel, _position: Lon
   }
 
   def getOffset: Long = lengthAndPayloadOffset match {
-    case Some((_, offset)) => offset - 4
+    case Some((_, offset)) => offset - Message.LengthSize
     case _ => throw new Error("'next' method should be called prior to getOffset call")
   }
 

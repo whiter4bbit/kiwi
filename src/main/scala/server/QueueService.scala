@@ -15,12 +15,11 @@ import java.nio.file.Paths
 import java.util.concurrent.Executors
 import scala.concurrent.duration._
 
-import phi.{Log, PersistentQueue, PollingConsumer}
+import phi.{Log, Kiwi, PollingConsumer}
 import phi.message.TransferableMessageSet
 
-class QueueService(logPath: String, stats: StatsReceiver) extends Service[HttpRequest, HttpResponse] {
-  private val topics = new PersistentQueue(Paths.get(logPath))
-  private val pollingConsumer = PollingConsumer.start(topics)
+class QueueService(kiwi: Kiwi, stats: StatsReceiver) extends Service[HttpRequest, HttpResponse] {
+  private val pollingConsumer = PollingConsumer.start(kiwi)
   private val futurePool = FuturePool(Executors.newFixedThreadPool(5))
   private val appendThroughputCounter = stats.counter("queue-service/append-throughput")
   private val appendRequestsCounter = stats.counter("queue-service/append-request-count")
@@ -42,7 +41,7 @@ class QueueService(logPath: String, stats: StatsReceiver) extends Service[HttpRe
       appendRequestsCounter.incr()
       stats.time("queue-service/batch_append_duration") {
         val messageSet = TransferableMessageSet(content)
-        topics.getProducer(topic).append(messageSet)
+        kiwi.getProducer(topic).append(messageSet)
         appendThroughputCounter.incr(messageSet.count)
       }
       respond(OK, s"")
@@ -50,12 +49,12 @@ class QueueService(logPath: String, stats: StatsReceiver) extends Service[HttpRe
   }
 
   def fetchMessages(topic: String, count: Int): Future[HttpResponse] = futurePool.apply {
-    val messageSet = topics.getConsumer(topic).next(count)
+    val messageSet = kiwi.getConsumer(topic).next(count)
     QueueHttpResponse.ok(Some(messageSet))
   }
 
   def fetchMessages(topic: String, consumer: String, count: Int): Future[HttpResponse] = futurePool.apply {
-    val messageSet = topics.getConsumer(topic, consumer).next(count)
+    val messageSet = kiwi.getConsumer(topic, consumer).next(count)
     QueueHttpResponse.ok(Some(messageSet))
   }
 
@@ -73,7 +72,7 @@ class QueueService(logPath: String, stats: StatsReceiver) extends Service[HttpRe
 
   def updateOffset(req: HttpRequest, topic: String, consumer: String): Future[HttpResponse] = futurePool.apply {
     val offsetStr = new String(req.getContent.array)
-    topics.getOffsetStorage(topic).put(consumer, offsetStr.toLong)
+    kiwi.getOffsetStorage(topic).put(consumer, offsetStr.toLong)
     respond(OK, "")
   }
 

@@ -14,8 +14,8 @@ import org.scalatest._
 class PollingConsumerSpec extends FlatSpec with Matchers {
   "PollingConsumer" should "return message pointer when messages available" in {
     withTempDir("polling-consumer") { dir =>
-      val queue = new PersistentQueue(dir)
-      val consumer = PollingConsumer.start(queue)
+      val kiwi = Kiwi.start(dir)
+      val consumer = PollingConsumer.start(kiwi)
 
       val ConsumersCount = 10000
       val latch = new CountDownLatch(ConsumersCount)
@@ -26,8 +26,8 @@ class PollingConsumerSpec extends FlatSpec with Matchers {
         broker.recv.sync().map { p => if (p.count > 0) latch.countDown }
       }
 
-      queue.getProducer("example-topic-0").append("message-1".getBytes)
-      queue.getProducer("example-topic-1").append("message-2".getBytes)
+      kiwi.getProducer("example-topic-0").append("message-1".getBytes)
+      kiwi.getProducer("example-topic-1").append("message-2".getBytes)
 
       latch.await(6, TimeUnit.SECONDS) should be (true)
     }

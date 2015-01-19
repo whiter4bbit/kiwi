@@ -53,6 +53,7 @@ object ProducerBenchmark {
     val avg = (options.producers * options.messages) / (spent.toDouble / 1000)
 
     printf("Avg Throughput = %.2f messages/sec\n", avg)
+    printf("Avg Latency = %.2f ms\n", (spent / (options.producers * (options.messages / options.batch)).toDouble))
   }
 }
 

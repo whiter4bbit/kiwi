@@ -8,7 +8,7 @@ organization := "phi-org"
 
 version := "0.1"
 
-scalaVersion := "2.11.4"
+scalaVersion := "2.11.5"
 
 scalacOptions := Seq("-feature", "-language:implicitConversions", "-language:postfixOps")
 

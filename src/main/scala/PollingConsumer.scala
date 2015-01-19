@@ -10,7 +10,7 @@ import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
 
 import phi.message.FileChannelMessagesPointer
 
-class PollingConsumer private (queue: PersistentQueue, interval: Duration = 100 milliseconds) {
+class PollingConsumer private (kiwi: Kiwi, interval: Duration = 100 milliseconds) {
   import PollingConsumer._
 
   private val lock = new ReentrantLock
@@ -36,15 +36,15 @@ class PollingConsumer private (queue: PersistentQueue, interval: Duration = 100 
     case request::tail if request.count == 0 => process(tail, pending)
     case Request(topic, consumer, count, broker, deadline)::tail if deadline.isOverdue => {
       val queueConsumer = consumer
-          .map(queue.getConsumer(topic, _))
-          .getOrElse(queue.getConsumer(topic))
+          .map(kiwi.getConsumer(topic, _))
+          .getOrElse(kiwi.getConsumer(topic))
       broker.send(queueConsumer.next(count)).sync()
       process(tail, pending)
     }
     case (r @ Request(topic, consumer, count, broker, _))::tail => {
       val queueConsumer = consumer
-          .map(queue.getConsumer(topic, _))
-          .getOrElse(queue.getConsumer(topic))
+          .map(kiwi.getConsumer(topic, _))
+          .getOrElse(kiwi.getConsumer(topic))
       val pointer = queueConsumer.next(count)
       if (pointer.count > 0) {
         broker.send(pointer).sync()
@@ -72,8 +72,8 @@ class PollingConsumer private (queue: PersistentQueue, interval: Duration = 100 
 object PollingConsumer {
   private case class Request(topic: String, consumer: Option[String], count: Int, broker: Broker[FileChannelMessagesPointer], deadline: Deadline)
 
-  def start(queue: PersistentQueue, interval: Duration = 100 milliseconds): PollingConsumer = {
-    val consumer = new PollingConsumer(queue, interval)
+  def start(kiwi: Kiwi, interval: Duration = 100 milliseconds): PollingConsumer = {
+    val consumer = new PollingConsumer(kiwi, interval)
     consumer.start()
     consumer
   }
