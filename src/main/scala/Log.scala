@@ -15,6 +15,7 @@ import scala.collection.JavaConversions._
 
 import phi.io._
 import phi.message.TransferableMessageSet
+import phi.message2.MessageBatch
 import Exceptions._
 
 class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flushIntervalMessages: Int) extends Logger {
@@ -127,6 +128,17 @@ class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flu
     val segment = segments.get(lastOffset)
     val length = segment.length
     segment.append(set)
+
+    maybeFlush(segment)
+  }
+
+  def append(batch: MessageBatch): Unit = this.synchronized {
+    maybeRotate()
+
+    val lastOffset = segments.lastKey
+    val segment = segments.get(lastOffset)
+    val length = segment.length
+    segment.append(batch)
 
     maybeFlush(segment)
   }

@@ -42,6 +42,9 @@ case class PhiPath(path: JPath) {
   def readAllBytes(): Array[Byte] = {
     JFiles.readAllBytes(path)
   }
+  def write(bytes: Array[Byte]): Unit = {
+    JFiles.write(path, bytes)
+  }
   def resolve(seg: String) = {
     PhiPath(path.resolve(seg))
   }
