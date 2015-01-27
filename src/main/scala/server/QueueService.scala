@@ -16,7 +16,7 @@ import java.util.concurrent.Executors
 import scala.concurrent.duration._
 
 import phi.{Log, Kiwi, PollingConsumer}
-import phi.message.TransferableMessageSet
+import phi.message2.ChannelBufferMessageBatch
 
 class QueueService(kiwi: Kiwi, stats: StatsReceiver) extends Service[HttpRequest, HttpResponse] {
   private val pollingConsumer = PollingConsumer.start(kiwi)
@@ -40,9 +40,9 @@ class QueueService(kiwi: Kiwi, stats: StatsReceiver) extends Service[HttpRequest
     } else {
       appendRequestsCounter.incr()
       stats.time("queue-service/batch_append_duration") {
-        val messageSet = TransferableMessageSet(content)
-        kiwi.getProducer(topic).append(messageSet)
-        appendThroughputCounter.incr(messageSet.count)
+        val messageBatch = ChannelBufferMessageBatch(content)
+        kiwi.getProducer(topic).append(messageBatch)
+        appendThroughputCounter.incr(messageBatch.count)
       }
       respond(OK, s"")
     }

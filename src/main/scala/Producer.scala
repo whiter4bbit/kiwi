@@ -1,11 +1,9 @@
 package phi
 
-import phi.message.TransferableMessageSet
+import phi.message2.MessageBatch
 
 class Producer(log: Log) {
-  def append(payload: Array[Byte]): Unit = 
-    log.append(payload)
-  def append(set: TransferableMessageSet): Unit = 
-    log.append(set)
+  def append(batch: MessageBatch): Unit = 
+    log.append(batch)
 }
 

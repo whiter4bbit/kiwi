@@ -8,7 +8,7 @@ import scala.concurrent.duration._
 import java.util.concurrent.locks.ReentrantLock
 import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
 
-import phi.message.FileChannelMessagesPointer
+import phi.message2.MessageBatchWithOffset
 
 class PollingConsumer private (kiwi: Kiwi, interval: Duration = 100 milliseconds) {
   import PollingConsumer._
@@ -45,9 +45,9 @@ class PollingConsumer private (kiwi: Kiwi, interval: Duration = 100 milliseconds
       val queueConsumer = consumer
           .map(kiwi.getConsumer(topic, _))
           .getOrElse(kiwi.getConsumer(topic))
-      val pointer = queueConsumer.next(count)
-      if (pointer.count > 0) {
-        broker.send(pointer).sync()
+      val batch = queueConsumer.next(count)
+      if (batch.count > 0) {
+        broker.send(batch).sync()
         process(tail, pending)
       } else {
         process(tail, pending :+ r)
@@ -56,21 +56,21 @@ class PollingConsumer private (kiwi: Kiwi, interval: Duration = 100 milliseconds
     case Nil => pending
   }
 
-  def request(topic: String, consumer: Option[String], count: Int, timeout: FiniteDuration): Broker[FileChannelMessagesPointer] = {
+  def request(topic: String, consumer: Option[String], count: Int, timeout: FiniteDuration): Broker[MessageBatchWithOffset] = {
     lock.lock
     try {
-      val broker = new Broker[FileChannelMessagesPointer]
+      val broker = new Broker[MessageBatchWithOffset]
       requests = requests :+ Request(topic, consumer, count, broker, Deadline.now + timeout)
       broker
     } finally lock.unlock
   }
 
-  def request(topic: String, count: Int, timeout: FiniteDuration): Broker[FileChannelMessagesPointer] = 
+  def request(topic: String, count: Int, timeout: FiniteDuration): Broker[MessageBatchWithOffset] = 
     request(topic, None, count, timeout)
 }
 
 object PollingConsumer {
-  private case class Request(topic: String, consumer: Option[String], count: Int, broker: Broker[FileChannelMessagesPointer], deadline: Deadline)
+  private case class Request(topic: String, consumer: Option[String], count: Int, broker: Broker[MessageBatchWithOffset], deadline: Deadline)
 
   def start(kiwi: Kiwi, interval: Duration = 100 milliseconds): PollingConsumer = {
     val consumer = new PollingConsumer(kiwi, interval)

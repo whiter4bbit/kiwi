@@ -15,7 +15,7 @@ import scala.collection.JavaConversions._
 
 import phi.io._
 import phi.message.TransferableMessageSet
-import phi.message2.MessageBatch
+import phi.message2.{MessageBatch, MessageBatchWithOffset}
 import Exceptions._
 
 class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flushIntervalMessages: Int) extends Logger {
@@ -110,28 +110,6 @@ class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flu
       segment.flush()
   }
 
-  def append(payload: Array[Byte]): Unit = this.synchronized {
-    maybeRotate()
-
-    val lastOffset = segments.lastKey
-    val segment = segments.get(lastOffset)
-    val length = segment.length
-    segment.append(payload)
-
-    maybeFlush(segment)
-  }
-
-  def append(set: TransferableMessageSet): Unit = this.synchronized {
-    maybeRotate()
-
-    val lastOffset = segments.lastKey
-    val segment = segments.get(lastOffset)
-    val length = segment.length
-    segment.append(set)
-
-    maybeFlush(segment)
-  }
-
   def append(batch: MessageBatch): Unit = this.synchronized {
     maybeRotate()
 
@@ -143,7 +121,7 @@ class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flu
     maybeFlush(segment)
   }
 
-  def read(offset: Long, max: Int): LogSegmentView = this.synchronized {
+  def read(offset: Long, max: Int): MessageBatchWithOffset = this.synchronized {
     val startOffset = segments.floorKey(offset) match {
       case null => segments.higherKey(offset)
       case floorOffset => floorOffset
@@ -151,15 +129,15 @@ class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flu
 
     val iter = segments.tailMap(startOffset).keySet.iterator
 
-    @tailrec def findNonEmptyResult(nextOffset: Long): LogSegmentView = {
+    @tailrec def findNonEmptyResult(nextOffset: Long): MessageBatchWithOffset = {
       val readOffset = if (nextOffset <= offset) {
         offset
       } else {
         nextOffset - offset
       }
-      val view = segments.get(nextOffset).read(readOffset, max)
-      if (view.pointer.count > 0 || !iter.hasNext) {
-        view
+      val batch = segments.get(nextOffset).read(readOffset, max)
+      if (batch.count > 0 || !iter.hasNext) {
+        batch
       } else findNonEmptyResult(iter.next)
     }
 

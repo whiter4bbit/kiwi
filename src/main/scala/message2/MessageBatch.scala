@@ -12,7 +12,7 @@ import phi.LogFileRegion
 
 trait MessageIterator extends Iterator[Message] {
   private var _message: Option[Message] = None
-
+  
   def getNext: Option[Message]
 
   private def getMessage: Option[Message] = {
@@ -78,12 +78,29 @@ class FileChannelMessageIterator(ch: FileChannel, offset: Long, max: Int, length
   }
 }
 
+trait MessageBatchWithOffset extends MessageBatch {
+  def offset: Long
+}
+
+object MessageBatchWithOffset {
+  def apply(startOffset: Long, messageBatch: MessageBatch) = new MessageBatchWithOffset {
+    def logFileRegion = messageBatch.logFileRegion
+    def channelBuffer = messageBatch.channelBuffer
+    def transferTo(ch: FileChannel) = messageBatch.transferTo(ch)
+    def iterator = messageBatch.iterator
+    def count = messageBatch.count
+    def sizeBytes = messageBatch.sizeBytes
+    def offset = startOffset + sizeBytes
+  }
+}
+
 trait MessageBatch {
   def logFileRegion: Option[LogFileRegion]
   def channelBuffer: Option[ChannelBuffer]
   def transferTo(ch: FileChannel): Unit
   def iterator: Iterator[Message]
-  def size: Int
+  def count: Int
+  def sizeBytes: Long
 }
 
 class ChannelBufferMessageBatch private(buffer: ChannelBuffer, _size: Int, lengthThreshold: Int) extends MessageBatch {
@@ -97,7 +114,8 @@ class ChannelBufferMessageBatch private(buffer: ChannelBuffer, _size: Int, lengt
     }
   }
   def iterator: Iterator[Message] = new ChannelBufferMessageIterator(buffer.copy, lengthThreshold)
-  def size: Int = _size
+  def count: Int = _size
+  def sizeBytes: Long = 0
 }
 
 object ChannelBufferMessageBatch {
@@ -110,28 +128,37 @@ object ChannelBufferMessageBatch {
   }
 }
 
-class FileRegionMessageBatch private(channel: FileChannel, position: Long, count: Long, _size: Int, cachedIterator: () => Iterator[Message]) extends MessageBatch {
-  def logFileRegion: Option[LogFileRegion] = Some(LogFileRegion(channel, position, count))
+class FileRegionMessageBatch private(channel: FileChannel, offset: Long, _count: Long, max: Int, _size: Int, lengthThreshold: Int) extends MessageBatch {
+  def logFileRegion: Option[LogFileRegion] = Some(LogFileRegion(channel, offset, _count))
   def channelBuffer: Option[ChannelBuffer] = None
   def transferTo(ch: FileChannel): Unit = { }
-  def iterator: Iterator[Message] = cachedIterator()
-  def size: Int = _size
+  def iterator: Iterator[Message] = new FileChannelMessageIterator(channel, offset, max, lengthThreshold)
+  def count: Int = _size
+  def sizeBytes: Long = _count
 }
 
 object FileRegionMessageBatch {
-  def apply(channel: FileChannel, offset: Long, max: Int, lengthThreshold: Int = 10 * 1024 * 1024): FileRegionMessageBatch = {
-    val iterator = new FileChannelMessageIterator(channel, offset, max, lengthThreshold)
+  def apply(channel: FileChannel, fileOffset: Long, max: Int, lengthThreshold: Int = 10 * 1024 * 1024): FileRegionMessageBatch = {
+    val iterator = new FileChannelMessageIterator(channel, fileOffset, max, lengthThreshold)
     val messages = iterator.toList
-    new FileRegionMessageBatch(channel, offset, iterator.position - offset, messages.size, () => messages.iterator)
+    val count = iterator.position - fileOffset
+    new FileRegionMessageBatch(channel, fileOffset, count, max, messages.size, lengthThreshold)
   }
 }
 
 class SimpleMessageBatch private(messages: List[Message], buffer: ChannelBuffer) extends MessageBatch {
   def logFileRegion: Option[LogFileRegion] = None
   def channelBuffer: Option[ChannelBuffer] = Some(buffer.slice)
-  def transferTo(ch: FileChannel): Unit = { }
+  def transferTo(ch: FileChannel): Unit = {
+    val _buffer = buffer.slice
+    val _readable = buffer.readableBytes
+    if (_buffer.readBytes(ch, _readable) != _readable) {
+      throw new IOException(s"Can't transfer ${_buffer.readableBytes} to channel ${ch}")
+    }
+  }
   def iterator: Iterator[Message] = messages.iterator
-  def size: Int = messages.size
+  def count: Int = messages.size
+  def sizeBytes: Long = 0
 }
 
 object SimpleMessageBatch {

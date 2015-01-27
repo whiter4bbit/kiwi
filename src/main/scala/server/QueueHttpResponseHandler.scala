@@ -12,14 +12,16 @@ class QueueHttpResponseHandler extends ChannelDownstreamHandler {
     e match {
       case m: MessageEvent => m.getMessage match {
         case httpResponse: QueueHttpResponse => {
-          httpResponse.pointer match {
-            case Some(pointer) => {
-              HttpHeaders.addHeader(httpResponse, "X-Start-Offset", pointer.offset)
-              HttpHeaders.addHeader(httpResponse, "X-Next-Offset", pointer.offset + pointer.region.count)
-              HttpHeaders.setContentLength(httpResponse, pointer.region.count)
+          httpResponse.batch match {
+            case Some(batch) => {
+              HttpHeaders.addHeader(httpResponse, "X-Offset", batch.offset)
+
+              val logFileRegion = batch.logFileRegion.get
+
+              HttpHeaders.setContentLength(httpResponse, logFileRegion.count)
               Channels.write(ctx, e.getFuture, httpResponse)
               
-              val region = new DefaultFileRegion(pointer.region.channel, pointer.region.position, pointer.region.count)
+              val region = new DefaultFileRegion(logFileRegion.channel, logFileRegion.position, logFileRegion.count)
               Channels.write(ctx, e.getFuture, region)
             }
             case None => Channels.write(ctx, e.getFuture, httpResponse)

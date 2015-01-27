@@ -2,28 +2,28 @@ package phi
 
 import java.nio.file.Path
 
-import phi.message.FileChannelMessagesPointer
+import phi.message2.MessageBatchWithOffset
 
 sealed trait Consumer {
-  def next(n: Int): FileChannelMessagesPointer
+  def next(n: Int): MessageBatchWithOffset
 }
 
 class GlobalConsumer(log: Log, offsetStorage: LogOffsetStorage) extends Consumer {
   private val GlobalConsumer = "_global"
 
-  def next(n: Int): FileChannelMessagesPointer = this.synchronized {
+  def next(n: Int): MessageBatchWithOffset = this.synchronized {
     val offset = offsetStorage.get(GlobalConsumer, 0L)
 
-    val pointer = log.read(offset, n).pointer
-    if (pointer.count > 0) {
-      offsetStorage.put(GlobalConsumer, pointer.offset + pointer.region.count)
+    val batch = log.read(offset, n)
+    if (batch.count > 0) {
+      offsetStorage.put(GlobalConsumer, batch.offset)
     }
-    pointer
+    batch
   }
 }
 
 class OffsetConsumer(log: Log, consumer: String, offsetStorage: LogOffsetStorage) extends Consumer {
-  def next(n: Int): FileChannelMessagesPointer = {
-    log.read(offsetStorage.get(consumer, 0L), n).pointer
+  def next(n: Int): MessageBatchWithOffset = {
+    log.read(offsetStorage.get(consumer, 0L), n)
   }
 }

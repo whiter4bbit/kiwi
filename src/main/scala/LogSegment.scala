@@ -8,7 +8,7 @@ import java.io.{RandomAccessFile, File => JFile, IOException}
 
 import phi.io._
 import phi.message.{MessageIterator, TransferableMessageSet}
-import phi.message2.{FileRegionMessageBatch, MessageBatch}
+import phi.message2.{FileRegionMessageBatch, MessageBatch, MessageBatchWithOffset}
 
 class LogSegment(val file: JFile) extends Logger {
   import LogSegment._
@@ -55,33 +55,11 @@ class LogSegment(val file: JFile) extends Logger {
 
   def lastModified: Long = file.lastModified
 
-  def read(offset: Long, max: Int): LogSegmentView = {
+  def read(offset: Long, max: Int): MessageBatchWithOffset = {
     require(this.offset <= offset, s"Given offset ${offset} is less, than segment offset ${this.offset}")
 
-    new LogSegmentView(channel, offset - this.offset, max)
-  }
-
-  def read2(offset: Long, max: Int): MessageBatch = {
-    require(this.offset <= offset, s"Given offset ${offset} is less, than segment offset ${this.offset}")
-
-    FileRegionMessageBatch(channel, offset - this.offset, max)
-  }
-
-  def append(payload: Array[Byte]): Unit = {
-    try {
-      raf.writeInt(payload.size)
-      raf.write(payload)
-    } catch {
-      case e: IOException => close(); throw e
-    }
-  }
-
-  def append(set: TransferableMessageSet): Unit = {
-    try {
-      set.transferTo(channel)
-    } catch {
-      case e: IOException => close(); throw e
-    }
+    val batch = FileRegionMessageBatch(channel, offset - this.offset, max)
+    MessageBatchWithOffset(offset, batch)
   }
 
   def append(batch: MessageBatch): Unit = {
