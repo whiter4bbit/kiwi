@@ -6,12 +6,16 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
 
 import phi.message._
+
 import phi.io._
 import PhiFiles._
 
 import org.scalatest._
 
 class PollingConsumerSpec extends FlatSpec with Matchers {
+  def messageBatch(payload: Array[Byte]) = 
+    SimpleMessageBatch(List(Message(payload)))
+
   "PollingConsumer" should "return message pointer when messages available" in {
     withTempDir("polling-consumer") { dir =>
       val kiwi = Kiwi.start(dir)
@@ -26,8 +30,8 @@ class PollingConsumerSpec extends FlatSpec with Matchers {
         broker.recv.sync().map { p => if (p.count > 0) latch.countDown }
       }
 
-      kiwi.getProducer("example-topic-0").append("message-1".getBytes)
-      kiwi.getProducer("example-topic-1").append("message-2".getBytes)
+      kiwi.getProducer("example-topic-0").append(messageBatch("message-1".getBytes))
+      kiwi.getProducer("example-topic-1").append(messageBatch("message-2".getBytes))
 
       latch.await(6, TimeUnit.SECONDS) should be (true)
     }

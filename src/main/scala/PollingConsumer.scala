@@ -8,7 +8,7 @@ import scala.concurrent.duration._
 import java.util.concurrent.locks.ReentrantLock
 import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
 
-import phi.message2.MessageBatchWithOffset
+import phi.message.MessageBatchWithOffset
 
 class PollingConsumer private (kiwi: Kiwi, interval: Duration = 100 milliseconds) {
   import PollingConsumer._

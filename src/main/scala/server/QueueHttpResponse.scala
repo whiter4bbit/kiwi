@@ -1,7 +1,7 @@
 package phi.server
 
 import org.jboss.netty.handler.codec.http._
-import phi.message2.MessageBatchWithOffset
+import phi.message.MessageBatchWithOffset
 
 class QueueHttpResponse(version: HttpVersion, status: HttpResponseStatus, val batch: Option[MessageBatchWithOffset]) extends DefaultHttpResponse(version, status)
 

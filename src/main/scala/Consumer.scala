@@ -2,7 +2,7 @@ package phi
 
 import java.nio.file.Path
 
-import phi.message2.MessageBatchWithOffset
+import phi.message._
 
 sealed trait Consumer {
   def next(n: Int): MessageBatchWithOffset

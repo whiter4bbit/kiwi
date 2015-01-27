@@ -7,11 +7,9 @@ object SimpleConsumerExample {
     val consumer = QueueClient("localhost:8080").simpleConsumer("example-topic", "consumer-1")
 
     def consume(): Unit = {
-      consumer.poll(10).flatMap { messages =>
-        messages.foreach(message => println(new String(message.payload)))
-        messages.lastOption.map { last =>
-          consumer.offset(last.nextOffset)
-        }.getOrElse(Future.value(()))
+      consumer.poll(10).flatMap { batch =>
+        batch.iterator.foreach(message => println(new String(message.payload)))
+        consumer.offset(batch.offset)
       } ensure consume
     }
 

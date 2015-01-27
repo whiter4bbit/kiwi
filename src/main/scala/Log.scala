@@ -14,8 +14,7 @@ import scala.collection.mutable.PriorityQueue
 import scala.collection.JavaConversions._
 
 import phi.io._
-import phi.message.TransferableMessageSet
-import phi.message2.{MessageBatch, MessageBatchWithOffset}
+import phi.message._
 import Exceptions._
 
 class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flushIntervalMessages: Int) extends Logger {

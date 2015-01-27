@@ -16,7 +16,7 @@ import java.util.concurrent.Executors
 import scala.concurrent.duration._
 
 import phi.{Log, Kiwi, PollingConsumer}
-import phi.message2.ChannelBufferMessageBatch
+import phi.message.ChannelBufferMessageBatch
 
 class QueueService(kiwi: Kiwi, stats: StatsReceiver) extends Service[HttpRequest, HttpResponse] {
   private val pollingConsumer = PollingConsumer.start(kiwi)

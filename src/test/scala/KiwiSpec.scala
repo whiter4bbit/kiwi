@@ -5,11 +5,15 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import org.scalatest._
 
-import phi.message.Message
+import phi.message.{SimpleMessageBatch, Message}
+
 import phi.io._
 import PhiFiles._
 
 class KiwiSpec extends FlatSpec with Matchers {
+  def messageBatch(payload: Array[Byte]) = 
+    SimpleMessageBatch(List(Message(payload)))
+
   "Kiwi" should "guarantee at most once delivery for global consumers" in {
     withTempDir("persistent-queue-spec") { dir =>
       val queue = Kiwi.start(dir)
@@ -19,7 +23,7 @@ class KiwiSpec extends FlatSpec with Matchers {
       val count = 10000
 
       (0 until count).foreach { seq =>
-        producer.append(seq.toString.getBytes)
+        producer.append(messageBatch(seq.toString.getBytes))
       }
 
       val received = Array.fill(count)(new AtomicInteger)
@@ -31,12 +35,10 @@ class KiwiSpec extends FlatSpec with Matchers {
       val consumer = new Runnable() {
         def run(): Unit = {
           while (running) {
-            val pointer = queue.getConsumer("ordered-topic").next(5)
-            Message.fromPointer(pointer).map { messages =>
-              messages.foreach { message =>
-                latch.countDown
-                received(new String(message.payload).toInt).incrementAndGet()
-              }
+            val batch = queue.getConsumer("ordered-topic").next(5)
+            batch.iterator.foreach { message =>
+              latch.countDown
+              received(new String(message.payload).toInt).incrementAndGet()
             }
           }
         }

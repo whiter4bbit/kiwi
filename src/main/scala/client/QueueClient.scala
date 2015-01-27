@@ -5,7 +5,7 @@ import com.twitter.util.{Await, Future}
 import org.jboss.netty.buffer.ChannelBuffers
 import org.jboss.netty.handler.codec.http._
 
-import phi.message.{MessageSet, Message}
+import phi.message.Message
 
 class QueueClient(url: String) {
   private val client: Service[HttpRequest, HttpResponse] = 

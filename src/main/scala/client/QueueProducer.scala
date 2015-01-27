@@ -6,14 +6,14 @@ import com.twitter.util.Future
 import org.jboss.netty.buffer.ChannelBuffers
 import org.jboss.netty.handler.codec.http._
 
-import phi.message.{EagerMessageSet, MessageSet, Message}
+import phi.message.{SimpleMessageBatch, Message}
 
 case class SendFailed(reason: String) extends Exception(reason)
 
 class QueueProducer private[client] (client: Service[HttpRequest, HttpResponse], topic: String) {
-  def send(messages: MessageSet): Future[Unit] = {
+  def send(messages: List[Message]): Future[Unit] = {
     val request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.POST, topic)
-    request.setContent(MessageSet.asBuffer(messages))
+    request.setContent(SimpleMessageBatch(messages).channelBuffer.get)
     client(request).flatMap { response =>
       if (response.getStatus == HttpResponseStatus.OK) {
         Future.value(())
@@ -24,7 +24,7 @@ class QueueProducer private[client] (client: Service[HttpRequest, HttpResponse],
   }
 
   def send(message: Message): Future[Unit] = {
-    send(EagerMessageSet(List(message)))
+    send(List(message))
   }
 
   def send(payload: Array[Byte]): Future[Unit] = {

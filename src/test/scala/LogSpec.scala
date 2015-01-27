@@ -4,20 +4,23 @@ import com.twitter.conversions.storage._
 
 import scala.concurrent.duration._
 
-import phi.message.Message
+import phi.message.{SimpleMessageBatch, MessageBatch, Message}
 import phi.io._
 import PhiFiles._
 
 import org.scalatest._
 
 class LogSpec extends FlatSpec with Matchers {
+  def messageBatch(payload: Array[Byte]): MessageBatch = 
+    SimpleMessageBatch(List(Message(payload)))
+
   "Log" should "append messages" in {
     withTempDir("log-spec") { dir =>
       val log = Log.open(dir, "topic-1", 100 megabytes)
       val messages = (0 until 10).map(i => s"message-$i".getBytes).toList
-      messages.foreach(log.append)
+      messages.foreach(messageBatch _ andThen log.append _)
 
-      val readMessages = log.read(0L, 10).messages
+      val readMessages = log.read(0L, 10).iterator.toList
 
       readMessages.map(_.payload.deep) should be (messages.map(_.deep))
     }
@@ -30,7 +33,7 @@ class LogSpec extends FlatSpec with Matchers {
       val fourBytes = Array[Byte](1,1,1,1)
 
       (0 until 128 * 3).foreach { _ =>
-        log.append(fourBytes)
+        log.append(messageBatch(fourBytes))
       }
 
       (dir / "topic-1").listFiles(LogSegment.isLogSegment).size should be (3)
@@ -45,13 +48,13 @@ class LogSpec extends FlatSpec with Matchers {
       val second = Array[Byte](2,2,2,2)
       val third = Array[Byte](3,3,3,3)
 
-      (0 until 128).foreach(_ => log.append(first))
-      (0 until 128).foreach(_ => log.append(second))
-      (0 until 128).foreach(_ => log.append(third))
+      (0 until 128).foreach(_ => log.append(messageBatch(first)))
+      (0 until 128).foreach(_ => log.append(messageBatch(second)))
+      (0 until 128).foreach(_ => log.append(messageBatch(third)))
 
-      log.read(0, 128).messages.map(_.payload.deep) should be (List.fill(128)(first.deep))
-      log.read(128 * (4 + 4), 128).messages.map(_.payload.deep) should be (List.fill(128)(second.deep))
-      log.read(2 * 128 * (4 + 4), 128).messages.map(_.payload.deep) should be (List.fill(128)(third.deep))
+      log.read(0, 128).iterator.toList.map(_.payload.deep) should be (List.fill(128)(first.deep))
+      log.read(128 * (4 + 4), 128).iterator.toList.map(_.payload.deep) should be (List.fill(128)(second.deep))
+      log.read(2 * 128 * (4 + 4), 128).iterator.toList.map(_.payload.deep) should be (List.fill(128)(third.deep))
 
       (dir / "topic-1").listFiles(LogSegment.isLogSegment).map(_.toFile.length) should be (List(1024, 1024, 1024))
     }
@@ -62,7 +65,7 @@ class LogSpec extends FlatSpec with Matchers {
       val log1 = Log.open(dir, "topic-1", 1 kilobyte)
 
       val message = Array[Byte](1,1,1,1)
-      (0 until (128 * 3)).foreach(_ => log1.append(message))
+      (0 until (128 * 3)).foreach(_ => log1.append(messageBatch(message)))
 
       log1.close
 
@@ -92,9 +95,9 @@ class LogSpec extends FlatSpec with Matchers {
       (dir / "topic-1" / LogSegment.fileName(segmentOffset(1))).toFile.length should be (offset(80))
       (dir / "topic-1" / LogSegment.fileName(segmentOffset(2))).toFile.length should be (offset(70))
 
-      log2.read(segmentOffset(0), 128).messages.size should be (100)
-      log2.read(segmentOffset(1), 128).messages.size should be (80)
-      log2.read(segmentOffset(2), 128).messages.size should be (70)
+      log2.read(segmentOffset(0), 128).count should be (100)
+      log2.read(segmentOffset(1), 128).count should be (80)
+      log2.read(segmentOffset(2), 128).count should be (70)
     }
   }
 
@@ -104,7 +107,7 @@ class LogSpec extends FlatSpec with Matchers {
       val message = Array[Byte](1, 1, 1, 1)
       def segmentOffset(n: Int) = 128 * n * (4 + message.length)
       
-      (0 until (128 * 5)).foreach(_ => log.append(message))
+      (0 until (128 * 5)).foreach(_ => log.append(messageBatch(message)))
 
       def segments = (dir / "topic-1").listFiles(LogSegment.isLogSegment)
 
@@ -129,11 +132,11 @@ class LogSpec extends FlatSpec with Matchers {
       val log = Log.open(dir, "topic-1", 1 kilobytes)
       val message = Array[Byte](1, 1, 1, 1)
 
-      (0 until (128 * 5)).foreach(_ => log.append(message))
+      (0 until (128 * 5)).foreach(_ => log.append(messageBatch(message)))
 
       log.deleteSegments(_.offset == 0)
 
-      log.read(0, 128).messages should have length 128
+      log.read(0, 128).count should be (128)
     }
   }
 
@@ -143,8 +146,8 @@ class LogSpec extends FlatSpec with Matchers {
       val message1 = Array[Byte](1, 1, 1, 1)
       val message2 = Array[Byte](2, 2, 2, 2)
 
-      (0 until 128).foreach(_ => log1.append(message1))
-      (0 until 128).foreach(_ => log1.append(message2))
+      (0 until 128).foreach(_ => log1.append(messageBatch(message1)))
+      (0 until 128).foreach(_ => log1.append(messageBatch(message2)))
 
       log1.close
 
@@ -164,7 +167,7 @@ class LogSpec extends FlatSpec with Matchers {
 
       val log2 = Log.open(dir, "topic-1", 1 kilobytes)
 
-      log2.read(0, 128).messages should have length 128
+      log2.read(0, 128).count should be (128)
     }
   }
 }

@@ -8,7 +8,6 @@ import scala.collection.mutable.HashMap
 import com.twitter.conversions.storage._
 import com.twitter.util.StorageUnit
 
-import phi.message.TransferableMessageSet
 import Exceptions._
 
 import phi.io._

@@ -32,11 +32,11 @@ object ProducerConsumer {
 
     def produce(n: Int): Unit = {
       val now = WallClock.millis
-      val messageSet = EagerMessageSet((0 until options.producerBatch).map { _ =>
+      val messages = (0 until options.producerBatch).map { _ =>
         Message(now.toString.getBytes)
-      }.toList)
+      }.toList
 
-      producer.send(messageSet).ensure {
+      producer.send(messages).ensure {
         if (n > 0) produce(n - options.producerBatch)
       }
     }
@@ -50,7 +50,7 @@ object ProducerConsumer {
 
     val latch = new CountDownLatch(options.messages)
 
-    def processMessages(messages: List[MessageAndOffset]): Unit = {
+    def processMessages(messages: List[Message]): Unit = {
       val now = WallClock.millis
       messages.foreach { message =>
         val lag = now - new String(message.payload).toLong

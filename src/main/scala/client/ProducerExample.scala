@@ -5,7 +5,7 @@ import org.jboss.netty.buffer.ChannelBuffers
 
 import scala.annotation.tailrec
 
-import phi.message.ChannelBufferMessageSet
+import phi.message.Message
 
 object ProducerExample {
   case class Options(batch: Int = 10, producers: Int = 1, size: Int = 128)
@@ -23,16 +23,11 @@ object ProducerExample {
 
     val producer = QueueClient("localhost:8080").producer("example-topic")
 
-    val buffer = ChannelBuffers.dynamicBuffer(options.batch * (4 + options.size))
-
     val message = new Array[Byte](options.size)
 
-    0 until options.batch foreach { _ =>
-      buffer.writeInt(message.length)
-      buffer.writeBytes(message)
-    }
-
-    val messages = ChannelBufferMessageSet(buffer)
+    val messages = (0 until options.batch) map { _ =>
+      Message(message)
+    } toList
 
     def produce(): Unit = {
       producer.send(messages) ensure {

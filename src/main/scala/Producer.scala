@@ -1,6 +1,6 @@
 package phi
 
-import phi.message2.MessageBatch
+import phi.message.MessageBatch
 
 class Producer(log: Log) {
   def append(batch: MessageBatch): Unit = 

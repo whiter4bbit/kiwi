@@ -7,16 +7,16 @@ import org.jboss.netty.buffer.ChannelBuffer
 import org.jboss.netty.buffer.ChannelBuffers.wrappedBuffer
 import org.jboss.netty.handler.codec.http._
 
-import phi.message.MessageAndOffset
+import phi.message.{MessageBatchWithOffset, ChannelBufferMessageBatch, Message}
 
 class SimpleQueueConsumer private[client] (client: Service[HttpRequest, HttpResponse], topic: String, id: String) {
   import QueueConsumer._
 
-  def fetch(count: Int): Future[List[MessageAndOffset]] = {
+  def fetch(count: Int): Future[MessageBatchWithOffset] = {
     client(get(s"$topic/consumer/$id/$count")) flatMap decode
   }
 
-  def poll(count: Int): Future[List[MessageAndOffset]] = {
+  def poll(count: Int): Future[MessageBatchWithOffset] = {
     client(get(s"$topic/consumer/$id/poll/$count")) flatMap decode
   }
 
@@ -30,21 +30,21 @@ class QueueConsumer private[client] (client: Service[HttpRequest, HttpResponse],
 
   private val consumer = new SimpleQueueConsumer(client, topic, id)
 
-  def fetch[A](count: Int)(f: List[MessageAndOffset] => A): Future[A] = {
-    consumer.fetch(count).flatMap { messages =>
-      val result = f(messages)
-      messages.lastOption.map { last =>
-        consumer.offset(last.nextOffset).map(_ => result)
-      }.getOrElse(Future.value(result))
+  def fetch[A](count: Int)(f: List[Message] => A): Future[A] = {
+    consumer.fetch(count).flatMap { batch =>
+      val result = f(batch.iterator.toList)
+      if (batch.count > 0) {
+        consumer.offset(batch.offset).map(_ => result)
+      } else Future.value(result)
     }
   }
 
-  def poll[A](count: Int)(f: List[MessageAndOffset] => A): Future[A] = {
-    consumer.poll(count).flatMap { messages =>
-      val result = f(messages)
-      messages.lastOption.map { last =>
-        consumer.offset(last.nextOffset).map(_ => result)
-      }.getOrElse(Future.value(result))
+  def poll[A](count: Int)(f: List[Message] => A): Future[A] = {
+    consumer.poll(count).flatMap { batch =>
+      val result = f(batch.iterator.toList)
+      if (batch.count > 0) {
+        consumer.offset(batch.offset).map(_ => result)
+      } else Future.value(result)
     }
   }
 }
@@ -52,12 +52,18 @@ class QueueConsumer private[client] (client: Service[HttpRequest, HttpResponse],
 class GlobalQueueConsumer private[client] (client: Service[HttpRequest, HttpResponse], topic: String) {
   import QueueConsumer._
 
-  def fetch(count: Int): Future[List[MessageAndOffset]] = {
-    client(get(s"$topic/$count")) flatMap decode
+  def fetch(count: Int): Future[List[Message]] = {
+    for {
+      response <- client(get(s"$topic/$count"))
+      batch <- decode(response)
+    } yield batch.iterator.toList
   }
 
-  def poll(count: Int): Future[List[MessageAndOffset]] = {
-    client(get(s"$topic/poll/$count")) flatMap decode
+  def poll(count: Int): Future[List[Message]] = {
+    for {
+      response <- client(get(s"$topic/poll/$count"))
+      batch <- decode(response)
+    } yield batch.iterator.toList
   }
 
 }
@@ -80,12 +86,11 @@ object QueueConsumer {
     }
   }
   
-  private[client] def decode(resp: HttpResponse): Future[List[MessageAndOffset]] = {
-    val messages = for {
-      startOffset <- longHeader(resp.headers(), "X-Start-Offset")
-      decoded <- MessageAndOffset.fromBuffer(startOffset, resp.getContent)
-    } yield decoded
-    Future.const(messages)
+  private[client] def decode(resp: HttpResponse): Future[MessageBatchWithOffset] = {
+    val batch = longHeader(resp.headers(), "X-Offset").map { offset =>
+      MessageBatchWithOffset(offset, ChannelBufferMessageBatch(resp.getContent))
+    }
+    Future.const(batch)
   }
 }
 

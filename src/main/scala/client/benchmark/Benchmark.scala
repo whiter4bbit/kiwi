@@ -28,12 +28,10 @@ object ProducerBenchmark {
 
     val message = Array.ofDim[Byte](options.size)
 
-    val eagerMessageSet = EagerMessageSet((0 until options.batch).map(_ => Message(message)).toList)
-
-    val messageSet = ChannelBufferMessageSet(MessageSet.asBuffer(eagerMessageSet))
+    val messages = (0 until options.batch).map(_ => Message(message)).toList
 
     def produce(n: Int, producer: QueueProducer): Unit = {
-       producer.send(messageSet).map { _ =>
+       producer.send(messages).map { _ =>
          latch.countDown
        } ensure {
          if (n > 0) produce(n - 1, producer)
@@ -78,7 +76,7 @@ object ConsumerBenchmark {
 
     val latch = new CountDownLatch(options.max)
 
-    def consume(f: (List[MessageAndOffset] => Unit) => Future[Unit]): Unit = {
+    def consume(f: (List[Message] => Unit) => Future[Unit]): Unit = {
       f { messages =>
         messages.foreach(_ => latch.countDown)
       } ensure {
@@ -91,7 +89,7 @@ object ConsumerBenchmark {
     val client = QueueClient(options.address)
 
     (0 until options.consumers).foreach { i =>
-      val f: ((List[MessageAndOffset] => Unit) => Future[Unit]) = (options.ack, options.poll) match {
+      val f: ((List[Message] => Unit) => Future[Unit]) = (options.ack, options.poll) match {
         case (false, false) => {
           val consumer = client.consumer(options.topic)
           (cb) => consumer.fetch(options.batch).map(cb)

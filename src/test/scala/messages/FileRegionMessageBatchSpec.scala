@@ -1,4 +1,4 @@
-package phi.message2
+package phi.message
 
 import org.jboss.netty.buffer.{ChannelBuffer, ChannelBuffers}
 

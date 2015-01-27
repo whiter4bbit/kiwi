@@ -7,8 +7,7 @@ import java.nio.file.{Path => JPath}
 import java.io.{RandomAccessFile, File => JFile, IOException}
 
 import phi.io._
-import phi.message.{MessageIterator, TransferableMessageSet}
-import phi.message2.{FileRegionMessageBatch, MessageBatch, MessageBatchWithOffset}
+import phi.message._
 
 class LogSegment(val file: JFile) extends Logger {
   import LogSegment._
@@ -32,10 +31,10 @@ class LogSegment(val file: JFile) extends Logger {
   def recover(): Unit = {
     try {
       channel.position(0)
-      val iterator = MessageIterator(channel, 0)
+      val iterator = new FileChannelMessageIterator(channel, 0, Int.MaxValue, Int.MaxValue)
       
       @tailrec def validOffset(): Long = {
-        if (iterator.next) validOffset() else iterator.getPosition
+        if (iterator.hasNext) validOffset() else iterator.position
       }
 
       val offset = validOffset()
