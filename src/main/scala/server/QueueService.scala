@@ -15,12 +15,12 @@ import java.nio.file.Paths
 import java.util.concurrent.Executors
 import scala.concurrent.duration._
 
-import phi.{Log, Kiwi, PollingConsumer}
-import phi.message.ChannelBufferMessageBatch
+import phi.{Log, Kiwi, PollingConsumer, Logger}
+import phi.message.{MessageBatchWithOffset, ChannelBufferMessageBatch}
 
-class QueueService(kiwi: Kiwi, stats: StatsReceiver) extends Service[HttpRequest, HttpResponse] {
+class QueueService(kiwi: Kiwi, stats: StatsReceiver) extends Service[HttpRequest, HttpResponse] with Logger {
   private val pollingConsumer = PollingConsumer.start(kiwi)
-  private val futurePool = FuturePool(Executors.newFixedThreadPool(5))
+  private val futurePool = FuturePool(Executors.newFixedThreadPool(30))
   private val appendThroughputCounter = stats.counter("queue-service/append-throughput")
   private val appendRequestsCounter = stats.counter("queue-service/append-request-count")
 
@@ -48,25 +48,33 @@ class QueueService(kiwi: Kiwi, stats: StatsReceiver) extends Service[HttpRequest
     }
   }
 
+  def messageBatch(batch: MessageBatchWithOffset): HttpResponse = {
+    QueueHttpResponse.ok(Some(batch))
+  }
+
   def fetchMessages(topic: String, count: Int): Future[HttpResponse] = futurePool.apply {
-    val messageSet = kiwi.getConsumer(topic).next(count)
-    QueueHttpResponse.ok(Some(messageSet))
+    val batch = stats.time("queue-service/fetch_messages_duration_global") {
+      kiwi.getConsumer(topic).next(count)
+    }
+    messageBatch(batch)
   }
 
   def fetchMessages(topic: String, consumer: String, count: Int): Future[HttpResponse] = futurePool.apply {
-    val messageSet = kiwi.getConsumer(topic, consumer).next(count)
-    QueueHttpResponse.ok(Some(messageSet))
+    val batch = stats.time("queue-service/fetch_message_duration_consumer") {
+      kiwi.getConsumer(topic, consumer).next(count)
+    }
+    messageBatch(batch)
   }
 
   def pollMessages(topic: String, count: Int): Future[HttpResponse] = {
-    pollingConsumer.request(topic, count, 10 seconds).recv.sync().map { messageSet =>
-      QueueHttpResponse.ok(Some(messageSet))
+    pollingConsumer.request(topic, count, 10 seconds).recv.sync().map { batch =>
+      messageBatch(batch)
     }
   }
 
   def pollMessages(topic: String, consumer: String, count: Int): Future[HttpResponse] = {
-    pollingConsumer.request(topic, Some(consumer), count, 10 seconds).recv.sync().map { messageSet =>
-      QueueHttpResponse.ok(Some(messageSet))
+    pollingConsumer.request(topic, Some(consumer), count, 10 seconds).recv.sync().map { batch =>
+      messageBatch(batch)
     }
   }
 
@@ -76,8 +84,13 @@ class QueueService(kiwi: Kiwi, stats: StatsReceiver) extends Service[HttpRequest
     respond(OK, "")
   }
 
+  def ping(): Future[HttpResponse] = futurePool.apply {
+    respond(OK, "pong")
+  }
+
   def apply(req: HttpRequest): Future[HttpResponse] = {
     (req.getMethod, Path(req.getUri)) match {
+      case Get -> Root / "ping" => ping()
       case Post -> Root / topic => appendMessage(req, topic)
       case Get -> Root / topic => fetchMessages(topic, 1)
       case Get -> Root / topic / count => fetchMessages(topic, count.toInt)

@@ -28,7 +28,7 @@ object QueueServer extends TwitterServer {
 
     val server = ServerBuilder()
       .codec(QueueHttpCodec(http))
-      .bindTo(new InetSocketAddress(8080))
+      .bindTo(new InetSocketAddress(5432))
       .name("queue-server")
       .reportTo(statsReceiver)
       .build(service)

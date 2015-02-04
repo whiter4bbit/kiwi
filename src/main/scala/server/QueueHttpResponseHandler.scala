@@ -1,7 +1,9 @@
 package phi.server
 
+import com.twitter.finagle.netty3.Conversions._
 import org.jboss.netty.buffer.ChannelBuffers
-import org.jboss.netty.channel.{DefaultFileRegion, ChannelHandlerContext, ChannelEvent, ChannelDownstreamHandler, MessageEvent, Channels, Channel}
+import org.jboss.netty.channel.{DefaultFileRegion, ChannelHandlerContext, ChannelEvent, ChannelDownstreamHandler, MessageEvent, 
+Channels, Channel, ChannelFutureListener, ChannelFuture}
 import org.jboss.netty.handler.codec.oneone.OneToOneEncoder
 import org.jboss.netty.handler.codec.http._
 
@@ -19,10 +21,15 @@ class QueueHttpResponseHandler extends ChannelDownstreamHandler {
               val logFileRegion = batch.logFileRegion.get
 
               HttpHeaders.setContentLength(httpResponse, logFileRegion.count)
-              Channels.write(ctx, e.getFuture, httpResponse)
-              
+
+              val responseFuture = Channels.future(e.getChannel)
+              Channels.write(ctx, responseFuture, httpResponse)
+
+              val fileRegionFuture = Channels.future(e.getChannel)
               val region = new DefaultFileRegion(logFileRegion.channel, logFileRegion.position, logFileRegion.count)
-              Channels.write(ctx, e.getFuture, region)
+              Channels.write(ctx, fileRegionFuture, region)
+
+              responseFuture.flatMap(_ => fileRegionFuture).proxyTo(e.getFuture)
             }
             case None => Channels.write(ctx, e.getFuture, httpResponse)
           }

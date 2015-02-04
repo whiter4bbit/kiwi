@@ -8,7 +8,7 @@ import phi.message._
 
 object ProducerConsumer {
   case class Options(messages: Int = 10000, size: Int = 1024, producerBatch: Int = 10, consumerBatch: Int = 10, consumers: Int = 10,
-    address: String = "localhost:8080", topic: String = "example-topic", consumerId: String = "consumer-1", offsetConsumer: Boolean = false)
+    address: String = "localhost:5432", topic: String = "example-topic", consumerId: String = "consumer-1", offsetConsumer: Boolean = false)
 
   def parse(args: List[String], options: Options = Options()): Options = args match {
     case "-messages"::messages::tail => parse(tail, options.copy(messages = messages.toInt))
