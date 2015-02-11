@@ -8,8 +8,11 @@ class QueueHttpResponse(version: HttpVersion, status: HttpResponseStatus, val ba
 object QueueHttpResponse {
   val QueueHttpVersion = HttpVersion.HTTP_1_1
 
-  def ok(batch: Option[MessageBatchWithOffset] = None) = 
+  def ok(batch: Option[MessageBatchWithOffset] = None): QueueHttpResponse = 
     new QueueHttpResponse(QueueHttpVersion, HttpResponseStatus.OK, batch)
+
+  def ok(batch: MessageBatchWithOffset): QueueHttpResponse =
+    ok(Some(batch))
 
   def noContent() =
     new QueueHttpResponse(QueueHttpVersion, HttpResponseStatus.NO_CONTENT, None)

@@ -12,22 +12,22 @@ import PhiFiles._
 
 import org.scalatest._
 
-class PollingConsumerSpec extends FlatSpec with Matchers {
+class AwaitableConsumerSpec extends FlatSpec with Matchers {
   def messageBatch(payload: Array[Byte]) = 
     SimpleMessageBatch(List(Message(payload)))
 
-  "PollingConsumer" should "return message pointer when messages available" in {
-    withTempDir("polling-consumer") { dir =>
+  "AwaitableConsumer" should "return batch when messages available" in {
+    withTempDir("awaitable-consumer") { dir =>
       val kiwi = Kiwi.start(dir)
-      val consumer = PollingConsumer.start(kiwi)
+      val consumer = AwaitableConsumer.start(kiwi)
 
       val ConsumersCount = 10000
       val latch = new CountDownLatch(ConsumersCount)
 
       (0 until ConsumersCount).foreach { i =>
         val topic = i % 2
-        val broker = consumer.request(s"example-topic-$topic", Some(s"consumer-$i"), 1, (5 seconds))
-        broker.recv.sync().map { p => if (p.count > 0) latch.countDown }
+        val batch = consumer.await(s"example-topic-$topic", s"consumer-$i", 1, (5 seconds))
+        batch.map { b => if (b.count > 0) latch.countDown }
       }
 
       kiwi.getProducer("example-topic-0").append(messageBatch("message-1".getBytes))

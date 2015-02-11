@@ -23,6 +23,7 @@ class Kiwi private (baseDir: JPath, maxSegmentSize: StorageUnit = 500 megabytes,
     val (topic, consumer) = p
     new OffsetConsumer(logs.get(topic), consumer, offsetStorages.get(topic))
   }
+  private val awaitableConsumer = AwaitableConsumer.start(this)
 
   private def init(): Unit = {
     log.info("Starting Kiwi")
@@ -52,6 +53,10 @@ class Kiwi private (baseDir: JPath, maxSegmentSize: StorageUnit = 500 megabytes,
 
   def getProducer(topic: String): Producer = {
     producers.get(topic)
+  }
+
+  def getAwaitableConsumer(): AwaitableConsumer = {
+    awaitableConsumer
   }
 
   def shutdown(): Unit = {

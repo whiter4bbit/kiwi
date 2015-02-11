@@ -16,9 +16,9 @@ class FileChannelMessageIterator(ch: FileChannel, offset: Long, max: Int, length
       val length = lengthBuf.getInt
       lengthBuf.clear
 
-      if (length <= lengthThreshold && ch.size() - position >= length) {
+      if (length <= lengthThreshold && ch.size() - (position + 4) >= length) {
         val payloadBuf = ByteBuffer.allocate(length)
-        ch.read(payloadBuf, position + 4)
+        val readBytes = ch.read(payloadBuf, position + 4)
 
         val payload = Array.ofDim[Byte](length)
         payloadBuf.flip
@@ -51,7 +51,7 @@ class ShallowFileChannelMessageIterator(ch: FileChannel, offset: Long, max: Int,
       val length = lengthBuf.getInt
       lengthBuf.clear
 
-      if (length <= lengthThreshold && ch.size() - position >= length) {
+      if (length <= lengthThreshold && ch.size() - (position + 4) >= length) {
         count += 1
         position += 4 + length
 

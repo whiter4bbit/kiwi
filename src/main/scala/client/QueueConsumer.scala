@@ -17,11 +17,11 @@ class SimpleQueueConsumer private[client] (client: Service[HttpRequest, HttpResp
   }
 
   def poll(count: Int): Future[MessageBatchWithOffset] = {
-    client(get(s"$topic/consumer/$id/poll/$count")) flatMap decode
+    client(get(s"$topic/consumer/$id/await/$count")) flatMap decode
   }
 
   def offset(offset: Long): Future[Unit] = {
-    client(post(s"$topic/consumer/$id/offset", wrappedBuffer(offset.toString.getBytes))).map(_ => ())
+    client(post(s"$topic/consumer/$id/offset/$offset")).map(_ => ())
   }
 }
 
@@ -61,7 +61,7 @@ class GlobalQueueConsumer private[client] (client: Service[HttpRequest, HttpResp
 
   def poll(count: Int): Future[List[Message]] = {
     for {
-      response <- client(get(s"$topic/poll/$count"))
+      response <- client(get(s"$topic/await/$count"))
       batch <- decode(response)
     } yield batch.iterator.toList
   }
@@ -74,9 +74,8 @@ object QueueConsumer {
   private[client] def get(path: String): HttpRequest =
     new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, path)
 
-  private[client] def post(path: String, buffer: ChannelBuffer): HttpRequest = {
+  private[client] def post(path: String): HttpRequest = {
     val request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.POST, path)
-    request.setContent(buffer)
     request
   }
 

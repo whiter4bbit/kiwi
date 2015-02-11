@@ -19,10 +19,15 @@ object QueueServer extends TwitterServer {
 
     Runtime.getRuntime.addShutdownHook(new Thread() { override def run = kiwi.shutdown })
 
+    val producerFilter = new ProducerFilter(kiwi)
+    val offsetFilter = new OffsetFilter(kiwi)
+    val offsetConsumerFilter = new OffsetConsumerFilter(kiwi)
+    val globalConsumerFilter = new GlobalConsumerFilter(kiwi)
     val handleExceptions = new ExceptionHandler(log)
-    val queueService = new QueueService(kiwi, statsReceiver) 
 
-    val service = handleExceptions andThen queueService
+    val service = handleExceptions andThen producerFilter andThen 
+        offsetConsumerFilter andThen globalConsumerFilter andThen 
+        offsetFilter andThen BadRequestService
 
     val http = Http()
 

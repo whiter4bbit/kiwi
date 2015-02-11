@@ -31,10 +31,13 @@ class LogSegment(val file: JFile) extends Logger {
   def recover(): Unit = {
     try {
       channel.position(0)
-      val iterator = new FileChannelMessageIterator(channel, 0, Int.MaxValue, Int.MaxValue)
+      val iterator = new ShallowFileChannelMessageIterator(channel, 0, Int.MaxValue, Int.MaxValue)
       
       @tailrec def validOffset(): Long = {
-        if (iterator.hasNext) validOffset() else iterator.position
+        if (iterator.hasNext) {
+          iterator.next
+          validOffset() 
+        } else iterator.position
       }
 
       val offset = validOffset()
