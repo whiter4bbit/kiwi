@@ -19,9 +19,9 @@ initialCommands in Compile := """
 |import phi._""".stripMargin
 
 libraryDependencies ++= Seq(
-  "com.twitter" %% "finagle-stats" % "6.24.1",
+  "com.twitter" %% "finagle-stats" % "6.24.0",
   "com.twitter" %% "twitter-server" % "1.9.0" exclude("com.twitter", "finagle-core"),
-  "com.twitter" %% "finagle-core" % "6.24.1",
+  "com.twitter" %% "finagle-core" % "6.24.0",
   "org.scalatest" %% "scalatest" % "2.2.1" % "test",
   "com.typesafe" % "config" % "1.2.1"
 )

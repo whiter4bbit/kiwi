@@ -31,7 +31,7 @@ object KiwiServer extends TwitterServer with ConfigSupport {
 
     val kiwi = Kiwi.start(config)
 
-    Runtime.getRuntime.addShutdownHook(new Thread() { 
+    Runtime.getRuntime.addShutdownHook(new Thread() {
       override def run = kiwi.shutdown
     })
 
