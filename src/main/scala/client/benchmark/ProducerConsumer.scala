@@ -62,11 +62,11 @@ object ProducerConsumer {
     }
 
     def consumeOffset(): Unit = {
-      offsetConsumer.poll(options.consumerBatch)(processMessages) ensure { consumeOffset() }
+      offsetConsumer.await(options.consumerBatch)(processMessages) ensure { consumeOffset() }
     }
 
     def consumeGlobal(): Unit = {
-      globalConsumer.poll(options.consumerBatch).map(processMessages) ensure { consumeGlobal() }
+      globalConsumer.await(options.consumerBatch).map(processMessages) ensure { consumeGlobal() }
     }
 
     produce(options.messages)

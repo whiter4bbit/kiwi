@@ -16,7 +16,7 @@ class KiwiSpec extends FlatSpec with Matchers {
 
   "Kiwi" should "guarantee at most once delivery for global consumers" in {
     withTempDir("persistent-queue-spec") { dir =>
-      val queue = Kiwi.start(dir)
+      val queue = Kiwi.start(Config().copy(baseDir = dir))
 
       val producer = queue.getProducer("ordered-topic")
 

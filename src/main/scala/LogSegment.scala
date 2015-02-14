@@ -45,7 +45,7 @@ class LogSegment(val file: JFile) extends Logger {
         log.info("Segment %s truncated to %d", file, offset)
         channel.truncate(offset)
       } else {
-        log.info("Segment %s don't needs recovery.")
+        log.info("Segment %s don't needs recovery.", file)
       }
     } catch {
       case e: Error => close(); throw e

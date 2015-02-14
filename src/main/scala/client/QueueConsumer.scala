@@ -12,16 +12,16 @@ import phi.message.{MessageBatchWithOffset, ChannelBufferMessageBatch, Message}
 class SimpleQueueConsumer private[client] (client: Service[HttpRequest, HttpResponse], topic: String, id: String) {
   import QueueConsumer._
 
-  def fetch(count: Int): Future[MessageBatchWithOffset] = {
-    client(get(s"$topic/consumer/$id/$count")) flatMap decode
+  def get(count: Int): Future[MessageBatchWithOffset] = {
+    client(httpGet(s"$topic/consumer/$id/$count")) flatMap decode
   }
 
-  def poll(count: Int): Future[MessageBatchWithOffset] = {
-    client(get(s"$topic/consumer/$id/await/$count")) flatMap decode
+  def await(count: Int): Future[MessageBatchWithOffset] = {
+    client(httpGet(s"$topic/consumer/$id/await/$count")) flatMap decode
   }
 
   def offset(offset: Long): Future[Unit] = {
-    client(post(s"$topic/consumer/$id/offset/$offset")).map(_ => ())
+    client(httpPost(s"$topic/$id/offset/$offset")).map(_ => ())
   }
 }
 
@@ -30,8 +30,8 @@ class QueueConsumer private[client] (client: Service[HttpRequest, HttpResponse],
 
   private val consumer = new SimpleQueueConsumer(client, topic, id)
 
-  def fetch[A](count: Int)(f: List[Message] => A): Future[A] = {
-    consumer.fetch(count).flatMap { batch =>
+  def get[A](count: Int)(f: List[Message] => A): Future[A] = {
+    consumer.get(count).flatMap { batch =>
       val result = f(batch.iterator.toList)
       if (batch.count > 0) {
         consumer.offset(batch.offset).map(_ => result)
@@ -39,8 +39,8 @@ class QueueConsumer private[client] (client: Service[HttpRequest, HttpResponse],
     }
   }
 
-  def poll[A](count: Int)(f: List[Message] => A): Future[A] = {
-    consumer.poll(count).flatMap { batch =>
+  def await[A](count: Int)(f: List[Message] => A): Future[A] = {
+    consumer.await(count).flatMap { batch =>
       val result = f(batch.iterator.toList)
       if (batch.count > 0) {
         consumer.offset(batch.offset).map(_ => result)
@@ -52,31 +52,29 @@ class QueueConsumer private[client] (client: Service[HttpRequest, HttpResponse],
 class GlobalQueueConsumer private[client] (client: Service[HttpRequest, HttpResponse], topic: String) {
   import QueueConsumer._
 
-  def fetch(count: Int): Future[List[Message]] = {
+  def get(count: Int): Future[List[Message]] = {
     for {
-      response <- client(get(s"$topic/$count"))
+      response <- client(httpGet(s"$topic/$count"))
       batch <- decode(response)
     } yield batch.iterator.toList
   }
 
-  def poll(count: Int): Future[List[Message]] = {
+  def await(count: Int): Future[List[Message]] = {
     for {
-      response <- client(get(s"$topic/await/$count"))
+      response <- client(httpGet(s"$topic/await/$count"))
       batch <- decode(response)
     } yield batch.iterator.toList
   }
-
 }
 
 object QueueConsumer {
   case class WrongResponse(msg: String) extends Exception(msg)
 
-  private[client] def get(path: String): HttpRequest =
+  private[client] def httpGet(path: String): HttpRequest =
     new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, path)
 
-  private[client] def post(path: String): HttpRequest = {
-    val request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.POST, path)
-    request
+  private[client] def httpPost(path: String): HttpRequest = {
+    new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.POST, path)
   }
 
   private def longHeader(headers: HttpHeaders, name: String): Try[Long] = {

@@ -60,7 +60,7 @@ class AwaitableConsumer private(kiwi: Kiwi, interval: Duration) extends Logger {
       Future.value(batch)
     } else {
       val promise = new Promise[MessageBatchWithOffset]
-      awaits.add(Await(consumer, max, Deadline.now + timeout, promise));
+      awaits.add(Await(consumer, max, Deadline.now + timeout, promise))
       promise
     }
   }

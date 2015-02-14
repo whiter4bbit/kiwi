@@ -7,10 +7,7 @@ import org.jboss.netty.handler.codec.http._
 
 import phi.message.Message
 
-class QueueClient(url: String) {
-  private val client: Service[HttpRequest, HttpResponse] = 
-    Http.newService(url)
-
+class QueueClient private (client: Service[HttpRequest, HttpResponse]) {
   def producer(topic: String) = new QueueProducer(client, topic)
 
   def simpleConsumer(topic: String, id: String) = new SimpleQueueConsumer(client, topic, id)
@@ -21,5 +18,7 @@ class QueueClient(url: String) {
 }
 
 object QueueClient {
-  def apply(url: String) = new QueueClient(url)
+  def apply(client: Service[HttpRequest, HttpResponse]): QueueClient = new QueueClient(client)
+  def apply(url: String): QueueClient = apply(Http.newService(url))
+  def apply(): QueueClient = apply("localhost:5432")
 }

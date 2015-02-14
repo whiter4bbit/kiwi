@@ -92,19 +92,19 @@ object ConsumerBenchmark {
       val f: ((List[Message] => Unit) => Future[Unit]) = (options.ack, options.poll) match {
         case (false, false) => {
           val consumer = client.consumer(options.topic)
-          (cb) => consumer.fetch(options.batch).map(cb)
+          (cb) => consumer.get(options.batch).map(cb)
         }
         case (false, true) => {
           val consumer = client.consumer(options.topic)
-          (cb) => consumer.poll(options.batch).map(cb)
+          (cb) => consumer.await(options.batch).map(cb)
         }
         case (true, false) => {
           val consumer = client.consumer(options.topic, s"consumer-$i")
-          (cb) => consumer.fetch(options.batch)(cb)
+          (cb) => consumer.get(options.batch)(cb)
         }
         case (true, true) => {
           val consumer = client.consumer(options.topic, s"consumer$i")
-          (cb) => consumer.poll(options.batch)(cb)
+          (cb) => consumer.await(options.batch)(cb)
         }
       }
 

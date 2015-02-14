@@ -18,7 +18,7 @@ class QueueProducer private[client] (client: Service[HttpRequest, HttpResponse],
       if (response.getStatus == HttpResponseStatus.OK) {
         Future.value(())
       } else {
-        Future.rawException(SendFailed(s"Can't send message set. Non-ok status returned: ${response.getStatus}"))
+        Future.rawException(SendFailed(s"Can't send message set. Non-ok status received from server: ${response.getStatus}"))
       }
     }
   }

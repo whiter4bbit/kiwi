@@ -2,10 +2,11 @@ package phi.server
 
 import com.twitter.finagle.{SimpleFilter, Service}
 import com.twitter.util.{Future}
-import com.twitter.logging.Logger
 import org.jboss.netty.handler.codec.http._
 
-class ExceptionHandler(log: Logger) extends SimpleFilter[HttpRequest, HttpResponse] {
+import phi.Logger
+
+object ExceptionHandler extends SimpleFilter[HttpRequest, HttpResponse] with Logger {
   def apply(req: HttpRequest, service: Service[HttpRequest, HttpResponse]): Future[HttpResponse] = {
     service(req) handle {
       case e: Throwable => {

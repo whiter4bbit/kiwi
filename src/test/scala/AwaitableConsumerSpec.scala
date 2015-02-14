@@ -18,7 +18,7 @@ class AwaitableConsumerSpec extends FlatSpec with Matchers {
 
   "AwaitableConsumer" should "return batch when messages available" in {
     withTempDir("awaitable-consumer") { dir =>
-      val kiwi = Kiwi.start(dir)
+      val kiwi = Kiwi.start(Config().copy(baseDir = dir))
       val consumer = AwaitableConsumer.start(kiwi)
 
       val ConsumersCount = 10000
