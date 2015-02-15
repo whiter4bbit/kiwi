@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/whiter4bbit/kiwi.svg?branch=master)](https://travis-ci.org/whiter4bbit/kiwi)
+
 # Kiwi
 Kiwi is message queue inspired by Kafka (http://kafka.apache.org/documentation.html#design). Kafka is fast, 
 well-designed message queue with replication support. However it may be overhead for some projects (e.g. during prototyping) to start using Kafka - 
