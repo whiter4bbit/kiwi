@@ -38,7 +38,7 @@ object ProducerBenchmark {
        }
     }
 
-    val client = QueueClient(options.address)
+    val client = KiwiClient(options.address)
 
     val start = System.currentTimeMillis
     (0 until options.producers).foreach { i =>
@@ -86,7 +86,7 @@ object ConsumerBenchmark {
 
     val start = System.currentTimeMillis
 
-    val client = QueueClient(options.address)
+    val client = KiwiClient(options.address)
 
     (0 until options.consumers).foreach { i =>
       val f: ((List[Message] => Unit) => Future[Unit]) = (options.ack, options.poll) match {

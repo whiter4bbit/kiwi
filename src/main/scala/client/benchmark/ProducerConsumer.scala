@@ -27,7 +27,7 @@ object ProducerConsumer {
   def main(args: Array[String]): Unit = {
     val options = parse(args.toList)
 
-    val client = QueueClient(options.address)
+    val client = KiwiClient(options.address)
     val producer = client.producer(options.topic)
 
     def produce(n: Int): Unit = {
