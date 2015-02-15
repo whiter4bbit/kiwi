@@ -12,6 +12,10 @@ scalaVersion := "2.11.5"
 
 scalacOptions := Seq("-feature", "-language:implicitConversions", "-language:postfixOps", "-Xlint")
 
+assemblyJarName in assembly := "kiwi.jar"
+
+mainClass := Some("phi.server.KiwiServer")
+
 resolvers += "twttr" at "http://maven.twttr.com/"
 
 initialCommands in Compile := """
@@ -25,5 +29,6 @@ libraryDependencies ++= Seq(
   "com.typesafe" % "config" % "1.2.1",
   "ch.qos.logback" % "logback-classic" % "1.1.2",
   "org.slf4j" % "slf4j-api" % "1.7.10",
-  "org.slf4j" % "jul-to-slf4j" % "1.7.10"
+  "org.slf4j" % "jul-to-slf4j" % "1.7.10",
+  "jline" % "jline" % "2.12.1"
 )
