@@ -1,7 +1,8 @@
 package phi
 
 import com.twitter.logging.{Logger => TLogger}
+import org.slf4j.LoggerFactory
 
 trait Logger {
-  val log = TLogger(getClass)
+  val log = LoggerFactory.getLogger(getClass)
 }

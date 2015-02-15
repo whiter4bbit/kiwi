@@ -1,0 +1,16 @@
+<configuration>
+  <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+    <append>false</append>
+    <file>kiwi.log</file>
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- avoid flooding with 'ChannelStatsHandler received non-channelbuffer write' when sending FileRegions -->
+  <logger name="com.twitter.finagle.channel.ChannelStatsHandler" level="OFF"/>
+
+  <root level="info">
+    <appender-ref ref="FILE" />
+  </root>
+</configuration>

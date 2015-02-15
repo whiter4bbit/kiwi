@@ -11,7 +11,7 @@ object BadRequestService extends Service[HttpRequest, HttpResponse] with Logger 
   val BadRequest = Future.value(Response(HttpResponseStatus.BAD_REQUEST))
 
   def apply(req: HttpRequest) = {
-    log.warning("Bad request %s: %s", req.getMethod, req.getUri)
+    log.warn("Bad request {}.", req)
     BadRequest
   }
 }

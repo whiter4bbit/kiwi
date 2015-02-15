@@ -38,7 +38,7 @@ class AwaitableConsumer private(kiwi: Kiwi, interval: Duration) extends Logger {
             iter.remove
           }
           case th @ Throw(throwable) => {
-            log.warning(throwable, "Can't get messages.")
+            log.warn("Can't get messages.", throwable)
             await.promise.update(th)
             iter.remove
           }
@@ -50,7 +50,7 @@ class AwaitableConsumer private(kiwi: Kiwi, interval: Duration) extends Logger {
     try {
       iterate()
     } catch {
-      case throwable: Throwable => log.warning(throwable, "Error while iterating.")
+      case throwable: Throwable => log.warn("Error while iterating.", throwable)
     }
   }
 

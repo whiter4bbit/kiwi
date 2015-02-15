@@ -1,33 +1,46 @@
 package phi.server
 
-import com.twitter.app.Flaggable
 import com.twitter.finagle.Service
 import com.twitter.finagle.builder.ServerBuilder
 import com.twitter.finagle.http.{Http, HttpMuxer}
-import com.twitter.server.TwitterServer 
 import com.twitter.util.{Await, Future}
-import com.twitter.logging.Logger
 import org.jboss.netty.handler.codec.http._
+import org.slf4j.bridge.SLF4JBridgeHandler
 
-import java.io.{File => JFile}
-import java.nio.file.Paths
-import java.net.InetSocketAddress
+import java.util.logging.{Logger => JULLogger}
 
 import phi.{Kiwi, Config}
 
-trait ConfigSupport {
-  implicit val ofConfig: Flaggable[Config] = new Flaggable[Config] {
-    override def parse(path: String) = Config.fromFile(path)
-    override def show(config: Config) = "[config]"
+object KiwiServer {
+  case class Options(config: Option[Config] = None)
+
+  def parse(args: List[String], options: Options = Options()): Option[Options] = {
+    def help(): Option[Options] = { println(s"Usage: ${getClass.getName} [--config path]"); None }
+
+    args match {
+      case "--config"::path::tail => {
+        val config = Config.fromFile(path)
+        parse(tail, options.copy(config = Some(config)))
+      }
+      case "--help"::tail => help
+      case Nil => Some(options)
+      case unknown::_ => {
+        println(s"Unknown option ${unknown}")
+        help
+      }
+    }
   }
-}
 
-object KiwiServer extends TwitterServer with ConfigSupport {
+  def main(args: Array[String]): Unit = parse(args.toList) match {
+    case Some(options) => run(options)
+    case None => System.exit(1)
+  }
 
-  val kiwiConfig = flag("config.path", Config(), "Path to config")
+  def run(options: Options): Unit = {
+    SLF4JBridgeHandler.removeHandlersForRootLogger()
+    SLF4JBridgeHandler.install()
 
-  def main(): Unit = {
-    val config = kiwiConfig()
+    val config = options.config.getOrElse(Config())
 
     val kiwi = Kiwi.start(config)
 
@@ -50,9 +63,7 @@ object KiwiServer extends TwitterServer with ConfigSupport {
       .codec(QueueHttpCodec(http))
       .bindTo(config.bindAddress)
       .name("queue-server")
-      .reportTo(statsReceiver)
+      .logger(JULLogger.getLogger("com.twitter.finagle"))
       .build(service)
-
-    Await.ready(adminHttpServer)
   }
 }

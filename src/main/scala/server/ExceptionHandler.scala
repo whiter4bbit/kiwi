@@ -10,7 +10,7 @@ object ExceptionHandler extends SimpleFilter[HttpRequest, HttpResponse] with Log
   def apply(req: HttpRequest, service: Service[HttpRequest, HttpResponse]): Future[HttpResponse] = {
     service(req) handle {
       case e: Throwable => {
-        log.error(e, "Can't handle request: %s.", req)
+        log.error(s"Can't handle request: ${req}", e)
         new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR)
       }
     }

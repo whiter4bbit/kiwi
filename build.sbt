@@ -20,8 +20,10 @@ initialCommands in Compile := """
 
 libraryDependencies ++= Seq(
   "com.twitter" %% "finagle-stats" % "6.24.0",
-  "com.twitter" %% "twitter-server" % "1.9.0" exclude("com.twitter", "finagle-core"),
-  "com.twitter" %% "finagle-core" % "6.24.0",
+  "com.twitter" %% "finagle-http" % "6.24.0",
   "org.scalatest" %% "scalatest" % "2.2.1" % "test",
-  "com.typesafe" % "config" % "1.2.1"
+  "com.typesafe" % "config" % "1.2.1",
+  "ch.qos.logback" % "logback-classic" % "1.1.2",
+  "org.slf4j" % "slf4j-api" % "1.7.10",
+  "org.slf4j" % "jul-to-slf4j" % "1.7.10"
 )

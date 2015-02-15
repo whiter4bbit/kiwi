@@ -43,7 +43,7 @@ class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flu
       val segment = LogSegment.create(journalPath, 0L)
       segments.put(0L, segment)
     } else if (!cleanShutdownFile.exists) {
-      log.info("%s not found, starting recovery for %s topic segments.", cleanShutdownFile, name)
+      log.info(s"${cleanShutdownFile} not found, starting recovery for ${name} topic segments.")
       recover()
     }
 
@@ -53,7 +53,7 @@ class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flu
   private def recover(): Unit = {
     segments.foreach { entry =>
       val (offset, segment) = entry
-      log.info("Started recovery for log %s segment %d.", name, offset)
+      log.info(s"Started recovery for log ${name} segment ${offset}.")
       segment.recover()
     }
 
@@ -100,7 +100,7 @@ class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flu
     segments -= segment.offset
     segment.delete
 
-    log.info("Segment %s-%s (%s) deleted.", name, segment.offset, segment.file)
+    log.info(s"Segment ${name}-${segment.offset} (${segment.file}) deleted.")
   }
 
   private def maybeFlush(segment: LogSegment): Unit = {
@@ -148,7 +148,7 @@ class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flu
       segments.values.foreach(_.close)
 
       cleanShutdownFile.createNewFile
-      log.debug("Created clean shutdown file: %s.", cleanShutdownFile)
+      log.debug("Created clean shutdown file: {}.", cleanShutdownFile)
     } catch {
       case e: IOException => {
         log.error("Can't close log", e)

@@ -41,7 +41,7 @@ class Kiwi private (config: Config) extends Logger {
 
     config.baseDir.listFiles(_.isDirectory).foreach { topicDir =>
       val topicName = topicDir.toFile.getName()
-      log.info("Loading topic: %s", topicName)
+      log.info("Loading topic: {}.", topicName)
       logs.get(topicName)
     }
   }
