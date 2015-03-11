@@ -8,6 +8,7 @@ import java.io.{RandomAccessFile, File => JFile, IOException}
 
 import phi.io._
 import phi.message._
+import phi.bytes._
 
 class LogSegment(val file: JFile) extends Logger {
   import LogSegment._
@@ -57,16 +58,28 @@ class LogSegment(val file: JFile) extends Logger {
 
   def lastModified: Long = file.lastModified
 
-  def read(offset: Long, max: Int): MessageBatchWithOffset = {
+  val format = MessageBinaryFormat(10 * 1024)
+
+  def read(offset: Long, max: Int): ByteChunkAndOffset = {
     require(this.offset <= offset, s"Given offset ${offset} is less, than segment offset ${this.offset}")
 
-    val batch = FileRegionMessageBatch(channel, offset - this.offset, max)
-    MessageBatchWithOffset(offset, batch)
+    val chunk = ByteChunk(channel, offset - this.offset)
+    val iter = new BinaryFormatIterator(chunk, format)
+    @tailrec def iterate(n: Int): Long = if (n < max && iter.hasNext) {
+      iter.next
+      iterate(n + 1)
+    } else iter.position
+
+    try {
+      ByteChunkAndOffset(offset, chunk.take(iterate(0)))
+    } catch {
+      case m: MessageSizeExceedsLimit => log.error(s"Message size exceeds limit ${m.limit} (${m.length})"); throw m
+    }
   }
 
-  def append(batch: MessageBatch): Unit = {
+  def append(chunk: ByteChunk): Unit = {
     try {
-      batch.transferTo(channel)
+      chunk.transferTo(channel)
     } catch {
       case e: IOException => close(); throw e
     }

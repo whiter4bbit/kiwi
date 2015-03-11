@@ -4,17 +4,34 @@ import com.twitter.conversions.storage._
 
 import scala.concurrent.duration._
 
-import phi.message.{SimpleMessageBatch, MessageBatch, Message}
+import phi.message.{SimpleMessageBatch, MessageBatch, Message, MessageBinaryFormat}
 import phi.io._
+import phi.bytes._
 import PhiFiles._
 
 import org.scalatest._
 
 class LogSpec extends FlatSpec with Matchers {
-  def messageBatch(payload: Array[Byte]): MessageBatch = 
-    SimpleMessageBatch(List(Message(payload)))
+  implicit val format = MessageBinaryFormat(1024)
 
-  "Log" should "append messages" in {
+  def messageBatch(payload: Array[Byte]): ByteChunk = 
+    format.write(Message(payload)::Nil, ByteChunk.builder()).get
+
+  trait MessageBatchView {
+    def count: Int
+    def iterator: Iterator[Message]
+  }
+
+  implicit def byteChunk2MessageBatchView(batch: ByteChunkAndOffset)(implicit format: MessageBinaryFormat)  = {
+    val iterator = new BinaryFormatIterator(batch.chunk, format)
+    val messages = iterator.toList
+    new MessageBatchView {
+      def count = messages.size
+      def iterator = new BinaryFormatIterator(batch.chunk, format)
+    }
+  }
+
+  "LogSpec" should "append messages" in {
     withTempDir("log-spec") { dir =>
       val log = Log.open(dir, "topic-1", 100 megabytes)
       val messages = (0 until 10).map(i => s"message-$i".getBytes).toList
@@ -26,7 +43,7 @@ class LogSpec extends FlatSpec with Matchers {
     }
   }
 
-  "Log" should "rotate old segment and continue write to new" in {
+  it should "rotate old segment and continue write to new" in {
     withTempDir("log-spec") { dir =>
       val log = Log.open(dir, "topic-1", 1 kilobyte)
       
@@ -40,7 +57,7 @@ class LogSpec extends FlatSpec with Matchers {
     }
   }
 
-  "Log" should "choose correct segment for given offset during read" in {
+  it should "choose correct segment for given offset during read" in {
     withTempDir("log-spec") { dir =>
       val log = Log.open(dir, "topic-1", 1 kilobyte)
 
@@ -60,7 +77,7 @@ class LogSpec extends FlatSpec with Matchers {
     }
   }
 
-  "Log" should "restore corrupted segments" in {
+  it should "restore corrupted segments" in {
     withTempDir("logs-spec") { dir =>
       val log1 = Log.open(dir, "topic-1", 1 kilobyte)
 
@@ -101,7 +118,7 @@ class LogSpec extends FlatSpec with Matchers {
     }
   }
 
-  "Log" should "delete segments until predicate matches" in {
+  it should "delete segments until predicate matches" in {
     withTempDir("log-spec") { dir =>
       val log = Log.open(dir, "topic-1", 1 kilobyte)
       val message = Array[Byte](1, 1, 1, 1)
@@ -127,7 +144,7 @@ class LogSpec extends FlatSpec with Matchers {
     }
   }
 
-  "Log" should "read messages from closest segment if given one is empty" in {
+  it should "read messages from closest segment if given one is empty" in {
     withTempDir("log-spec") { dir =>
       val log = Log.open(dir, "topic-1", 1 kilobytes)
       val message = Array[Byte](1, 1, 1, 1)
@@ -140,7 +157,7 @@ class LogSpec extends FlatSpec with Matchers {
     }
   }
 
-  "Log" should "read messages from next closest segment if current is truncated to empty" in {
+  it should "read messages from next closest segment if current is truncated to empty" in {
     withTempDir("log-spec") { dir =>
       val log1 = Log.open(dir, "topic-1", 1 kilobytes)
       val message1 = Array[Byte](1, 1, 1, 1)

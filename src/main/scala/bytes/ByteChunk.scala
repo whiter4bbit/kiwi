@@ -1,6 +1,6 @@
 package phi.bytes
 
-import org.jboss.netty.buffer.ChannelBuffer
+import org.jboss.netty.buffer.{ChannelBuffer, ChannelBuffers}
 
 import java.nio.channels.FileChannel
 import java.nio.ByteBuffer
@@ -62,31 +62,35 @@ class ChannelBufferByteChunk(buffer: ChannelBuffer, val length: Long) extends By
     } catch {
       case _: IndexOutOfBoundsException => Failure(Eof)
     }
+
     def readBytes(bytes: Array[Byte]) = try {
       buffer.readBytes(bytes)
       Success(bytes)
     } catch {
       case _: IndexOutOfBoundsException => Failure(Eof)
     }
+
     def position = buffer.readerIndex
   }
 
-  def reader() = new Reader(buffer.slice)
+  def reader() = {
+    new Reader(buffer.slice.copy)
+  }
   def take(n: Long) = {
-    val slice = buffer.slice(0, n.toInt)
+    val slice = buffer.slice(0, n.toInt).copy
     new ChannelBufferByteChunk(slice, slice.readableBytes)
   }
   def transferTo(ch: FileChannel) = {
-    buffer.readBytes(ch, length.toInt)
+    buffer.slice.readBytes(ch, length.toInt)
   }
 }
 
-class FileChannelByteChunk(channel: FileChannel, position: Long, val length: Long) extends ByteChunk {
+class FileChannelByteChunk(val channel: FileChannel, val offset: Long, val length: Long) extends ByteChunk {
   class Reader(var _position: Long) extends ByteChunkReader {
     private val intBuf = ByteBuffer.allocate(4)
 
     private def checkLength: Boolean = 
-      _position <= length
+      _position <= (offset + length)
     
     def readInt = try {
       if (checkLength && channel.read(intBuf, _position) == 4) {
@@ -117,17 +121,17 @@ class FileChannelByteChunk(channel: FileChannel, position: Long, val length: Lon
       case exception: Exception => Failure(Throw(exception))
     }
 
-    def position = _position
+    def position = _position - offset
   }
 
-  def reader() = new Reader(position)
+  def reader() = new Reader(offset)
   def take(n: Long) = {
-    if (length - n >= 0) {
-      new FileChannelByteChunk(channel, position, n)
+    if (n >= 0) {
+      new FileChannelByteChunk(channel, offset, n)
     } else this
   }
   def transferTo(ch: FileChannel) = 
-    channel.transferTo(position, length, ch)
+    channel.transferTo(offset, length, ch)
 }
 
 class ChannelBufferByteChunkBuilder(buffer: ChannelBuffer) extends ByteChunkBuilder {
@@ -153,11 +157,17 @@ object ByteChunk {
   def apply(buffer: ChannelBuffer): ByteChunk = 
     new ChannelBufferByteChunk(buffer, buffer.readableBytes)
 
+  def apply(): ByteChunk = 
+    apply(ChannelBuffers.dynamicBuffer(512))
+
   def apply(channel: FileChannel, position: Long): ByteChunk = 
     new FileChannelByteChunk(channel, position, channel.size - position)
 
   def builder(buffer: ChannelBuffer): ByteChunkBuilder = 
     new ChannelBufferByteChunkBuilder(buffer)
+
+  def builder(): ByteChunkBuilder = 
+    builder(ChannelBuffers.dynamicBuffer(512))
 }
 
 class BinaryFormatIterator[M](chunk: ByteChunk, format: BinaryFormat[M]) extends Iterator[M] {

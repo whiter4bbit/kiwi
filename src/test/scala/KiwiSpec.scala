@@ -5,16 +5,35 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import org.scalatest._
 
-import phi.message.{SimpleMessageBatch, Message}
+import phi.message.{SimpleMessageBatch, Message, MessageBinaryFormat}
 
+import phi.bytes._
 import phi.io._
 import PhiFiles._
 
 class KiwiSpec extends FlatSpec with Matchers {
-  def messageBatch(payload: Array[Byte]) = 
-    SimpleMessageBatch(List(Message(payload)))
+  implicit val format = MessageBinaryFormat(10 * 1024)
 
-  "Kiwi" should "guarantee at most once delivery for global consumers" in {
+  def messageBatch(payload: Array[Byte]) = {
+    if (payload.length > 10 * 1024) throw new Error("wrong size!!!!")
+    format.write(Message(payload)::Nil, ByteChunk.builder).get
+  }
+
+  trait MessageBatchView {
+    def count: Int
+    def iterator: Iterator[Message]
+  }
+
+  implicit def byteChunk2MessageBatchView(batch: ByteChunkAndOffset)(implicit format: MessageBinaryFormat)  = {
+    val iterator = new BinaryFormatIterator(batch.chunk, format)
+    val messages = iterator.toList
+    new MessageBatchView {
+      def count = messages.size
+      def iterator = messages.iterator
+    }
+  }
+
+  it should "guarantee at most once delivery for global consumers" in {
     withTempDir("persistent-queue-spec") { dir =>
       val queue = Kiwi.start(Config().copy(baseDir = dir))
 
@@ -58,7 +77,7 @@ class KiwiSpec extends FlatSpec with Matchers {
 
       threads.foreach(_.join)
 
-      received.map(_.get).deep should be (Array.fill(count)(1).deep)
+      received.map(_.get).deep should be (Array.fill(count)(1).deep) 
     }
   }
 }

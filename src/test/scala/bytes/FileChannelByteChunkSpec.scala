@@ -26,4 +26,29 @@ class FileChannelByteChunkSpec extends FlatSpec with Matchers {
       deser2 should have size 9
     }
   }
+
+  it should "maitain relative position and length" in {
+    withTempDir("file-channel-byte-chunk") { dir =>
+      val file = (dir / "message")
+      val raf = file.newRandomAccessFile("rw")
+      val buffer = ChannelBuffers.dynamicBuffer(512)
+      buffer.writeInt(42)
+      buffer.writeInt(24)
+      buffer.writeInt(56)
+
+      buffer.readBytes(raf.getChannel, buffer.readableBytes)
+
+      val chunk = ByteChunk(raf.getChannel, 4)
+      chunk.length should be (8)
+
+      val reader = chunk.reader
+      reader.position should be (0)
+      reader.readInt should be (Success(24))
+      reader.position should be (4)
+      reader.readInt should be (Success(56))
+      reader.position should be (8)
+      reader.readInt should be (Failure(Eof))
+      reader.position should be (8)
+    }
+  }
 }

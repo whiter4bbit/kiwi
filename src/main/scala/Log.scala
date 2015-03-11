@@ -15,13 +15,14 @@ import scala.collection.JavaConversions._
 
 import phi.io._
 import phi.message._
+import phi.bytes._
 import Exceptions._
 
 class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flushIntervalMessages: Int) extends Logger {
   require(name.length > 0, "Name should be defined")
   require(baseDir != null, "Base directory should be defined")
 
-  private val segments = new TreeMap[JLong, LogSegment]
+  val segments = new TreeMap[JLong, LogSegment]
 
   private val journalPath = baseDir / name
 
@@ -109,7 +110,7 @@ class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flu
       segment.flush()
   }
 
-  def append(batch: MessageBatch): Unit = this.synchronized {
+  def append(batch: ByteChunk): Unit = this.synchronized {
     maybeRotate()
 
     val lastOffset = segments.lastKey
@@ -120,7 +121,7 @@ class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flu
     maybeFlush(segment)
   }
 
-  def read(offset: Long, max: Int): MessageBatchWithOffset = this.synchronized {
+  def read(offset: Long, max: Int): ByteChunkAndOffset = this.synchronized {
     val startOffset = segments.floorKey(offset) match {
       case null => segments.higherKey(offset)
       case floorOffset => floorOffset
@@ -128,16 +129,18 @@ class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flu
 
     val iter = segments.tailMap(startOffset).keySet.iterator
 
-    @tailrec def findNonEmptyResult(nextOffset: Long): MessageBatchWithOffset = {
+    @tailrec def findNonEmptyResult(nextOffset: Long): ByteChunkAndOffset = {
       val readOffset = if (nextOffset <= offset) {
         offset
       } else {
         nextOffset - offset
       }
       val batch = segments.get(nextOffset).read(readOffset, max)
-      if (batch.count > 0 || !iter.hasNext) {
+      if (batch.chunk.length > 0 || !iter.hasNext) {
         batch
-      } else findNonEmptyResult(iter.next)
+      } else {
+        findNonEmptyResult(iter.next)
+      }
     }
 
     findNonEmptyResult(iter.next)

@@ -1,9 +1,9 @@
 package phi
 
-import phi.message.MessageBatch
+import phi.bytes._
 
 class Producer(log: Log) {
-  def append(batch: MessageBatch): Unit = 
-    log.append(batch)
+  def append(chunk: ByteChunk): Unit = 
+    log.append(chunk)
 }
 

@@ -13,5 +13,3 @@ case class Message(payload: Array[Byte])
 object Message {
   val LengthSize = 4
 }
-
-

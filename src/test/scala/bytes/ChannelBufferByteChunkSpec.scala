@@ -34,4 +34,24 @@ class ChannelBufferByteChunkSpec extends FlatSpec with Matchers {
       deserialized should have length 10
     }
   }
+
+  it should "return relative position for reader" in {
+    val buffer = ChannelBuffers.dynamicBuffer(512)
+    buffer.writeInt(42)
+    buffer.writeInt(24)
+    buffer.writeInt(56)
+
+    buffer.readInt()
+
+    val chunk = ByteChunk(buffer)
+    chunk.length should be (8)
+    
+    val reader = chunk.reader()
+    reader.position should be (0)
+    reader.readInt should be (Success(24))
+    reader.position should be (4)
+    reader.readInt should be (Success(56))
+    reader.position should be (8)
+    reader.readInt should be (Failure(Eof))
+  }
 }

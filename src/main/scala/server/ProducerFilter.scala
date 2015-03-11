@@ -8,14 +8,13 @@ import com.twitter.util.Future
 import org.jboss.netty.handler.codec.http._
 
 import phi.Kiwi
-import phi.message._
+import phi.bytes._
 
 class ProducerFilter(kiwi: Kiwi) extends SimpleFilter[HttpRequest, HttpResponse] {
  def apply(req: HttpRequest, service: Service[HttpRequest, HttpResponse]): Future[HttpResponse] = {
    (req.getMethod, Path(req.getUri)) match {
      case Post -> Root / topic => {
-       val batch = ChannelBufferMessageBatch(req.getContent)
-       kiwi.getProducer(topic).append(batch)
+       kiwi.getProducer(topic).append(ByteChunk(req.getContent))
        Future.value(Response())
      }
      case _ => service(req)

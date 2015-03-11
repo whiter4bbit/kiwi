@@ -8,6 +8,7 @@ import scala.collection.JavaConversions._
 import scala.annotation.tailrec
 
 import com.twitter.util.{Promise, Future, Try, Return, Throw}
+import phi.bytes._
 import phi.message.MessageBatchWithOffset
 
 class AwaitableConsumer private(kiwi: Kiwi, interval: Duration) extends Logger {
@@ -33,7 +34,7 @@ class AwaitableConsumer private(kiwi: Kiwi, interval: Duration) extends Logger {
       if (iter.hasNext) {
         val await = iter.next
         Try(await.consumer.next(await.max)).respond {
-          case ret @ Return(batch) if (batch.count > 0 || await.deadline.isOverdue) => {
+          case ret @ Return(batch) if (batch.chunk.length > 0 || await.deadline.isOverdue) => {
             await.promise.update(ret)
             iter.remove
           }
@@ -54,28 +55,28 @@ class AwaitableConsumer private(kiwi: Kiwi, interval: Duration) extends Logger {
     }
   }
 
-  def await(consumer: Consumer, max: Int, timeout: FiniteDuration): Future[MessageBatchWithOffset] = {
+  def await(consumer: Consumer, max: Int, timeout: FiniteDuration): Future[ByteChunkAndOffset] = {
     val batch = consumer.next(max)
-    if (batch.count > 0) {
+    if (batch.chunk.length > 0) {
       Future.value(batch)
     } else {
-      val promise = new Promise[MessageBatchWithOffset]
+      val promise = new Promise[ByteChunkAndOffset]
       awaits.add(Await(consumer, max, Deadline.now + timeout, promise))
       promise
     }
   }
 
-  def await(topic: String, consumer: String, max: Int, timeout: FiniteDuration): Future[MessageBatchWithOffset] = {
+  def await(topic: String, consumer: String, max: Int, timeout: FiniteDuration): Future[ByteChunkAndOffset] = {
     await(kiwi.getConsumer(topic, consumer), max, timeout)
   }
 
-  def await(topic: String, max: Int, timeout: FiniteDuration): Future[MessageBatchWithOffset] = {
+  def await(topic: String, max: Int, timeout: FiniteDuration): Future[ByteChunkAndOffset] = {
     await(kiwi.getConsumer(topic), max, timeout)
   }
 }
 
 object AwaitableConsumer {
-  private case class Await(val consumer: Consumer, val max: Int, val deadline: Deadline, val promise: Promise[MessageBatchWithOffset])
+  private case class Await(val consumer: Consumer, val max: Int, val deadline: Deadline, val promise: Promise[ByteChunkAndOffset])
   
   def start(kiwi: Kiwi, interval: Duration = 100 milliseconds): AwaitableConsumer = {
     val awaitableConsumer = new AwaitableConsumer(kiwi, interval)

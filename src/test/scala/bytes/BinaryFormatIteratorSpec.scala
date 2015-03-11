@@ -18,7 +18,10 @@ class BinaryFormatIteratorSpec extends FlatSpec with Matchers {
   "BinaryFormatIterator" should "iterate over messages specified by format" in {
     val chunk = format.write(messages, builder).get
     
-    BinaryFormatIterator(chunk, format).toList should have length 10
+    val iter = BinaryFormatIterator(chunk, format)
+    def count(n: Int): Int = if (iter.hasNext) { iter.next; count(n + 1); } else n
+    //BinaryFormatIterator(chunk, format).toList should have length 10
+    count(0) should be (10)
   }
 
   it should "throw exception during iteration if non Eof failure returned" in {

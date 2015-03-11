@@ -8,6 +8,7 @@ import org.jboss.netty.handler.codec.oneone.OneToOneEncoder
 import org.jboss.netty.handler.codec.http._
 
 import phi.io._
+import phi.bytes._
 
 class QueueHttpResponseHandler extends ChannelDownstreamHandler {
   override def handleDownstream(ctx: ChannelHandlerContext, e: ChannelEvent): Unit = {
@@ -18,18 +19,23 @@ class QueueHttpResponseHandler extends ChannelDownstreamHandler {
             case Some(batch) => {
               HttpHeaders.addHeader(httpResponse, "X-Offset", batch.offset)
 
-              val logFileRegion = batch.logFileRegion.get
-
-              HttpHeaders.setContentLength(httpResponse, logFileRegion.count)
+              HttpHeaders.setContentLength(httpResponse, batch.chunk.length)
 
               val responseFuture = Channels.future(e.getChannel)
               Channels.write(ctx, responseFuture, httpResponse)
 
-              val fileRegionFuture = Channels.future(e.getChannel)
-              val region = new DefaultFileRegion(logFileRegion.channel, logFileRegion.position, logFileRegion.count)
-              Channels.write(ctx, fileRegionFuture, region)
+              batch.chunk match {
+                case fileChannel: FileChannelByteChunk => {
+                  val fileRegionFuture = Channels.future(e.getChannel)
+                  val region = new DefaultFileRegion(fileChannel.channel, fileChannel.offset, fileChannel.length)
+                  Channels.write(ctx, fileRegionFuture, region)
 
-              responseFuture.flatMap(_ => fileRegionFuture).proxyTo(e.getFuture)
+                  responseFuture.flatMap(_ => fileRegionFuture).proxyTo(e.getFuture)
+                }
+                case notSupported => {
+                  throw new IllegalStateException(s"Transfer for $notSupported byte chunk is not supported.")
+                }
+              }
             }
             case None => Channels.write(ctx, e.getFuture, httpResponse)
           }

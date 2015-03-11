@@ -1,17 +1,17 @@
 package phi.server
 
 import org.jboss.netty.handler.codec.http._
-import phi.message.MessageBatchWithOffset
+import phi.ByteChunkAndOffset
 
-class QueueHttpResponse(version: HttpVersion, status: HttpResponseStatus, val batch: Option[MessageBatchWithOffset]) extends DefaultHttpResponse(version, status)
+class QueueHttpResponse(version: HttpVersion, status: HttpResponseStatus, val batch: Option[ByteChunkAndOffset]) extends DefaultHttpResponse(version, status)
 
 object QueueHttpResponse {
   val QueueHttpVersion = HttpVersion.HTTP_1_1
 
-  def ok(batch: Option[MessageBatchWithOffset] = None): QueueHttpResponse = 
+  def ok(batch: Option[ByteChunkAndOffset] = None): QueueHttpResponse = 
     new QueueHttpResponse(QueueHttpVersion, HttpResponseStatus.OK, batch)
 
-  def ok(batch: MessageBatchWithOffset): QueueHttpResponse =
+  def ok(batch: ByteChunkAndOffset): QueueHttpResponse =
     ok(Some(batch))
 
   def noContent() =
