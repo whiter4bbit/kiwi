@@ -13,7 +13,8 @@ case class Config (
   bindAddress: InetSocketAddress,
   maxSegmentSize: StorageUnit,
   logFlushIntervalMessages: Int,
-  offsetFlushIntervalUpdates: Int
+  offsetFlushIntervalUpdates: Int,
+  maxMessageSize: StorageUnit
 )
 
 object Config {
@@ -31,7 +32,8 @@ object Config {
     bindAddress = getInetSocketAddress(hocon, "kiwi.bind-address"),
     maxSegmentSize = new StorageUnit(hocon.getBytes("kiwi.max-segment-size")),
     logFlushIntervalMessages = hocon.getInt("kiwi.log-flush-interval-messages"),
-    offsetFlushIntervalUpdates = hocon.getInt("kiwi.offset-flush-interval-updates")
+    offsetFlushIntervalUpdates = hocon.getInt("kiwi.offset-flush-interval-updates"),
+    maxMessageSize = new StorageUnit(hocon.getBytes("kiwi.max-message-size"))
   )
 
   def fromFile(file: JFile): Config = {

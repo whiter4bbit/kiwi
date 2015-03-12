@@ -18,7 +18,7 @@ import phi.message._
 import phi.bytes._
 import Exceptions._
 
-class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flushIntervalMessages: Int) extends Logger {
+class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flushIntervalMessages: Int, messageFormat: MessageBinaryFormat) extends Logger {
   require(name.length > 0, "Name should be defined")
   require(baseDir != null, "Base directory should be defined")
 
@@ -36,12 +36,12 @@ class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flu
     }
 
     journalPath.listFiles(LogSegment.isLogSegment).foreach { path =>
-      val segment = LogSegment.open(path.toFile)
+      val segment = LogSegment.open(path.toFile, messageFormat)
       segments.put(segment.offset, segment)
     }
 
     if (segments.isEmpty) {
-      val segment = LogSegment.create(journalPath, 0L)
+      val segment = LogSegment.create(journalPath, 0L, messageFormat)
       segments.put(0L, segment)
     } else if (!cleanShutdownFile.exists) {
       log.info(s"${cleanShutdownFile} not found, starting recovery for ${name} topic segments.")
@@ -76,7 +76,7 @@ class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flu
     last.flush
 
     val newOffset = last.offset + last.length
-    val newSegment = LogSegment.create(journalPath, newOffset)
+    val newSegment = LogSegment.create(journalPath, newOffset, messageFormat)
 
     segments.put(newOffset, newSegment)
   }
@@ -166,8 +166,8 @@ class Log private (baseDir: Path, name: String, maxSegmentSize: StorageUnit, flu
 object Log {
   val CleanShutdownFile = ".clean_shutdown"
 
-  def open(baseDir: Path, name: String, maxSegmentSize: StorageUnit = 500 megabytes, flushIntervalMessages: Int = 1000): Log = {
-    val log = new Log(baseDir, name, maxSegmentSize, flushIntervalMessages)
+  def open(baseDir: Path, name: String, messageFormat: MessageBinaryFormat, maxSegmentSize: StorageUnit = 500 megabytes, flushIntervalMessages: Int = 1000): Log = {
+    val log = new Log(baseDir, name, maxSegmentSize, flushIntervalMessages, messageFormat)
     log.init()
     log
   }

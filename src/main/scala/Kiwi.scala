@@ -11,11 +11,14 @@ import com.twitter.util.StorageUnit
 import Exceptions._
 
 import phi.io._
+import phi.message.MessageBinaryFormat
 
 class Kiwi private (config: Config) extends Logger {
 
+  val messageFormat = MessageBinaryFormat(config.maxMessageSize.inBytes.toInt)
+
   private val logs = CachedResource(
-    (topic: String) => Log.open(config.baseDir, topic, config.maxSegmentSize, config.logFlushIntervalMessages)
+    (topic: String) => Log.open(config.baseDir, topic, messageFormat, config.maxSegmentSize, config.logFlushIntervalMessages)
   )
   private val offsetStorages = CachedResource(
     (topic: String) => LogOffsetStorage.open(config.baseDir, topic, config.offsetFlushIntervalUpdates)

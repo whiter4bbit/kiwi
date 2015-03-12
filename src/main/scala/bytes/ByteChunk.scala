@@ -47,6 +47,7 @@ trait ByteChunk {
   val length: Long
   def take(n: Long): ByteChunk
   def transferTo(ch: FileChannel): Long
+  def toChannelBuffer: ChannelBuffer
 }
 
 trait ByteChunkBuilder {
@@ -76,12 +77,18 @@ class ChannelBufferByteChunk(buffer: ChannelBuffer, val length: Long) extends By
   def reader() = {
     new Reader(buffer.slice.copy)
   }
+
   def take(n: Long) = {
     val slice = buffer.slice(0, n.toInt).copy
     new ChannelBufferByteChunk(slice, slice.readableBytes)
   }
+
   def transferTo(ch: FileChannel) = {
     buffer.slice.readBytes(ch, length.toInt)
+  }
+
+  def toChannelBuffer: ChannelBuffer = {
+    buffer.slice
   }
 }
 
@@ -125,13 +132,18 @@ class FileChannelByteChunk(val channel: FileChannel, val offset: Long, val lengt
   }
 
   def reader() = new Reader(offset)
+
   def take(n: Long) = {
     if (n >= 0) {
       new FileChannelByteChunk(channel, offset, n)
     } else this
   }
-  def transferTo(ch: FileChannel) = 
+
+  def transferTo(ch: FileChannel) = {
     channel.transferTo(offset, length, ch)
+  }
+
+  def toChannelBuffer: ChannelBuffer = ???
 }
 
 class ChannelBufferByteChunkBuilder(buffer: ChannelBuffer) extends ByteChunkBuilder {
@@ -204,3 +216,21 @@ object BinaryFormatIterator {
     new BinaryFormatIterator(chunk, format)
 }
 
+class BinaryFormatWriter[M](format: BinaryFormat[M], newBuilder: => ByteChunkBuilder) {
+  def toByteChunk(m: List[M]): Result[ByteChunk] = format.write(m, newBuilder)
+}
+
+object BinaryFormatWriter {
+  def apply[M](format: BinaryFormat[M], newBuilder: => ByteChunkBuilder): BinaryFormatWriter[M] = 
+    new BinaryFormatWriter(format, newBuilder)
+
+  def apply[M](format: BinaryFormat[M]): BinaryFormatWriter[M]  = 
+    new BinaryFormatWriter(format, ByteChunk.builder)
+}
+
+case class BinaryFormatReader[M](format: BinaryFormat[M]) {
+  def fromByteChunk(chunk: ByteChunk): List[M] = {
+    val iterator = new BinaryFormatIterator(chunk, format)
+    iterator.toList
+  }
+}

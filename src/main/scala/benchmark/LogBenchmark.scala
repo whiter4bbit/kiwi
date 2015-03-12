@@ -16,7 +16,7 @@ object LogBenchmark {
   def main(args: Array[String]): Unit = {
     val dir = JFiles.createTempDirectory(PhiFiles.tempDirectory, "log-benchmark")
     try {
-      val log = Log.open(dir, "log-benchmark")
+      val log = Log.open(dir, "log-benchmark", MessageBinaryFormat(1024))
       val format = MessageBinaryFormat(1024)
 
       val chunk = format.write(

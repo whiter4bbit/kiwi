@@ -7,17 +7,18 @@ import org.jboss.netty.buffer.ChannelBuffer
 import org.jboss.netty.buffer.ChannelBuffers.wrappedBuffer
 import org.jboss.netty.handler.codec.http._
 
-import phi.message.{MessageBatchWithOffset, ChannelBufferMessageBatch, Message}
+import phi.bytes._
+import phi.message.{MessageBatchWithOffset, Message}
 
-class SimpleQueueConsumer private[client] (client: Service[HttpRequest, HttpResponse], topic: String, id: String) {
+class SimpleQueueConsumer private[client] (client: Service[HttpRequest, HttpResponse], topic: String, id: String, reader: BinaryFormatReader[Message]) {
   import QueueConsumer._
 
   def get(count: Int): Future[MessageBatchWithOffset] = {
-    client(httpGet(s"$topic/consumer/$id/$count")) flatMap decode
+    client(httpGet(s"$topic/consumer/$id/$count")) flatMap decode(reader)
   }
 
   def await(count: Int): Future[MessageBatchWithOffset] = {
-    client(httpGet(s"$topic/consumer/$id/await/$count")) flatMap decode
+    client(httpGet(s"$topic/consumer/$id/await/$count")) flatMap decode(reader)
   }
 
   def offset(offset: Long): Future[Unit] = {
@@ -25,15 +26,15 @@ class SimpleQueueConsumer private[client] (client: Service[HttpRequest, HttpResp
   }
 }
 
-class QueueConsumer private[client] (client: Service[HttpRequest, HttpResponse], topic: String, id: String) {
+class QueueConsumer private[client] (client: Service[HttpRequest, HttpResponse], topic: String, id: String, reader: BinaryFormatReader[Message]) {
   import QueueConsumer._
 
-  private val consumer = new SimpleQueueConsumer(client, topic, id)
+  private val consumer = new SimpleQueueConsumer(client, topic, id, reader)
 
   def get[A](count: Int)(f: List[Message] => A): Future[A] = {
     consumer.get(count).flatMap { batch =>
-      val result = f(batch.iterator.toList)
-      if (batch.count > 0) {
+      val result = f(batch.messages)
+      if (batch.messages.size > 0) {
         consumer.offset(batch.offset).map(_ => result)
       } else Future.value(result)
     }
@@ -41,29 +42,29 @@ class QueueConsumer private[client] (client: Service[HttpRequest, HttpResponse],
 
   def await[A](count: Int)(f: List[Message] => A): Future[A] = {
     consumer.await(count).flatMap { batch =>
-      val result = f(batch.iterator.toList)
-      if (batch.count > 0) {
+      val result = f(batch.messages)
+      if (batch.messages.size > 0) {
         consumer.offset(batch.offset).map(_ => result)
       } else Future.value(result)
     }
   }
 }
 
-class GlobalQueueConsumer private[client] (client: Service[HttpRequest, HttpResponse], topic: String) {
+class GlobalQueueConsumer private[client] (client: Service[HttpRequest, HttpResponse], topic: String, reader: BinaryFormatReader[Message]) {
   import QueueConsumer._
 
   def get(count: Int): Future[List[Message]] = {
     for {
       response <- client(httpGet(s"$topic/$count"))
-      batch <- decode(response)
-    } yield batch.iterator.toList
+      batch <- decode(reader)(response)
+    } yield batch.messages
   }
 
   def await(count: Int): Future[List[Message]] = {
     for {
       response <- client(httpGet(s"$topic/await/$count"))
-      batch <- decode(response)
-    } yield batch.iterator.toList
+      batch <- decode(reader)(response)
+    } yield batch.messages
   }
 }
 
@@ -83,9 +84,10 @@ object QueueConsumer {
     }
   }
   
-  private[client] def decode(resp: HttpResponse): Future[MessageBatchWithOffset] = {
+  private[client] def decode(reader: BinaryFormatReader[Message])(resp: HttpResponse): Future[MessageBatchWithOffset] = {
     val batch = longHeader(resp.headers(), "X-Offset").map { offset =>
-      MessageBatchWithOffset(offset, ChannelBufferMessageBatch(resp.getContent))
+      val messages = reader.fromByteChunk(ByteChunk(resp.getContent))
+      MessageBatchWithOffset(messages, offset)
     }
     Future.const(batch)
   }

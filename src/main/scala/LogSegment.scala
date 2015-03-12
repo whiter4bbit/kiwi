@@ -10,7 +10,7 @@ import phi.io._
 import phi.message._
 import phi.bytes._
 
-class LogSegment(val file: JFile) extends Logger {
+class LogSegment(val file: JFile, messageFormat: MessageBinaryFormat) extends Logger {
   import LogSegment._
 
   private var channel: FileChannel = _
@@ -32,7 +32,7 @@ class LogSegment(val file: JFile) extends Logger {
   def recover(): Unit = {
     try {
       channel.position(0)
-      val iterator = new ShallowFileChannelMessageIterator(channel, 0, Int.MaxValue, Int.MaxValue)
+      val iterator = new BinaryFormatIterator(ByteChunk(channel, 0), messageFormat)
       
       @tailrec def validOffset(): Long = {
         if (iterator.hasNext) {
@@ -58,13 +58,11 @@ class LogSegment(val file: JFile) extends Logger {
 
   def lastModified: Long = file.lastModified
 
-  val format = MessageBinaryFormat(10 * 1024)
-
   def read(offset: Long, max: Int): ByteChunkAndOffset = {
     require(this.offset <= offset, s"Given offset ${offset} is less, than segment offset ${this.offset}")
 
     val chunk = ByteChunk(channel, offset - this.offset)
-    val iter = new BinaryFormatIterator(chunk, format)
+    val iter = new BinaryFormatIterator(chunk, messageFormat)
     @tailrec def iterate(n: Int): Long = if (n < max && iter.hasNext) {
       iter.next
       iterate(n + 1)
@@ -79,6 +77,12 @@ class LogSegment(val file: JFile) extends Logger {
 
   def append(chunk: ByteChunk): Unit = {
     try {
+      val iter = new BinaryFormatIterator(chunk, messageFormat)
+      @tailrec def validate(): Unit = if (iter.hasNext) {
+        iter.next
+        validate()
+      }
+      validate()
       chunk.transferTo(channel)
     } catch {
       case e: IOException => close(); throw e
@@ -108,14 +112,14 @@ object LogSegment {
       && file.getName().endsWith(FileExtension))
   }
 
-  def open(file: JFile): LogSegment = {
-    val segment = new LogSegment(file)
+  def open(file: JFile, messageFormat: MessageBinaryFormat): LogSegment = {
+    val segment = new LogSegment(file, messageFormat)
     segment.init
     segment
   }
 
-  def create(dir: JPath, offset: Long): LogSegment = {
-    open((dir / fileName(offset)).toFile)
+  def create(dir: JPath, offset: Long, messageFormat: MessageBinaryFormat): LogSegment = {
+    open((dir / fileName(offset)).toFile, messageFormat)
   }
 
   def fileName(offset: Long): String = {

@@ -5,16 +5,18 @@ import com.twitter.util.{Await, Future}
 import org.jboss.netty.buffer.ChannelBuffers
 import org.jboss.netty.handler.codec.http._
 
-import phi.message.Message
+import phi.bytes._
+import phi.message.{Message, MessageBinaryFormat}
 
-class KiwiClient private (client: Service[HttpRequest, HttpResponse]) {
-  def producer(topic: String) = new QueueProducer(client, topic)
+class KiwiClient private (client: Service[HttpRequest, HttpResponse], maxMessageSize: Int = 1024) {
+  private val format = MessageBinaryFormat(maxMessageSize)
+  private val reader = BinaryFormatReader(format)
+  private val writer = BinaryFormatWriter(format)
 
-  def simpleConsumer(topic: String, id: String) = new SimpleQueueConsumer(client, topic, id)
-
-  def consumer(topic: String, id: String) = new QueueConsumer(client, topic, id)
-
-  def consumer(topic: String) = new GlobalQueueConsumer(client, topic)
+  def producer(topic: String) = new QueueProducer(client, topic, writer)
+  def simpleConsumer(topic: String, id: String) = new SimpleQueueConsumer(client, topic, id, reader)
+  def consumer(topic: String, id: String) = new QueueConsumer(client, topic, id, reader)
+  def consumer(topic: String) = new GlobalQueueConsumer(client, topic, reader)
 }
 
 object KiwiClient {

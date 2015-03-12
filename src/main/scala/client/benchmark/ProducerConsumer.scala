@@ -7,12 +7,11 @@ import phi.client._
 import phi.message._
 
 object ProducerConsumer {
-  case class Options(messages: Int = 10000, size: Int = 1024, producerBatch: Int = 10, consumerBatch: Int = 10, consumers: Int = 10,
+  case class Options(messages: Int = 10000, producerBatch: Int = 10, consumerBatch: Int = 10, consumers: Int = 10,
     address: String = "localhost:5432", topic: String = "example-topic", consumerId: String = "consumer-1", offsetConsumer: Boolean = false)
 
   def parse(args: List[String], options: Options = Options()): Options = args match {
     case "-messages"::messages::tail => parse(tail, options.copy(messages = messages.toInt))
-    case "-size"::size::tail => parse(tail, options.copy(size = size.toInt))
     case "-producer-batch"::producerBatch::tail => parse(tail, options.copy(producerBatch = producerBatch.toInt))
     case "-consumer-batch"::consumerBatch::tail => parse(tail, options.copy(consumerBatch = consumerBatch.toInt))
     case "-address"::address::tail => parse(tail, options.copy(address = address))

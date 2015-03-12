@@ -4,7 +4,7 @@ import com.twitter.conversions.storage._
 
 import scala.concurrent.duration._
 
-import phi.message.{SimpleMessageBatch, MessageBatch, Message, MessageBinaryFormat}
+import phi.message.{Message, MessageBinaryFormat, MessageSizeExceedsLimit}
 import phi.io._
 import phi.bytes._
 import PhiFiles._
@@ -33,7 +33,7 @@ class LogSpec extends FlatSpec with Matchers {
 
   "LogSpec" should "append messages" in {
     withTempDir("log-spec") { dir =>
-      val log = Log.open(dir, "topic-1", 100 megabytes)
+      val log = Log.open(dir, "topic-1", format, 100 megabytes)
       val messages = (0 until 10).map(i => s"message-$i".getBytes).toList
       messages.foreach(messageBatch _ andThen log.append _)
 
@@ -45,7 +45,7 @@ class LogSpec extends FlatSpec with Matchers {
 
   it should "rotate old segment and continue write to new" in {
     withTempDir("log-spec") { dir =>
-      val log = Log.open(dir, "topic-1", 1 kilobyte)
+      val log = Log.open(dir, "topic-1", format, 1 kilobyte)
       
       val fourBytes = Array[Byte](1,1,1,1)
 
@@ -59,7 +59,7 @@ class LogSpec extends FlatSpec with Matchers {
 
   it should "choose correct segment for given offset during read" in {
     withTempDir("log-spec") { dir =>
-      val log = Log.open(dir, "topic-1", 1 kilobyte)
+      val log = Log.open(dir, "topic-1", format, 1 kilobyte)
 
       val first = Array[Byte](1,1,1,1)
       val second = Array[Byte](2,2,2,2)
@@ -79,7 +79,7 @@ class LogSpec extends FlatSpec with Matchers {
 
   it should "restore corrupted segments" in {
     withTempDir("logs-spec") { dir =>
-      val log1 = Log.open(dir, "topic-1", 1 kilobyte)
+      val log1 = Log.open(dir, "topic-1", format, 1 kilobyte)
 
       val message = Array[Byte](1,1,1,1)
       (0 until (128 * 3)).foreach(_ => log1.append(messageBatch(message)))
@@ -106,7 +106,7 @@ class LogSpec extends FlatSpec with Matchers {
       truncate(segmentOffset(1), offset(80) + 5)
       truncate(segmentOffset(2), offset(70) + 1)
 
-      val log2 = Log.open(dir, "topic-1", 1 kilobyte)
+      val log2 = Log.open(dir, "topic-1", format, 1 kilobyte)
 
       (dir / "topic-1" / LogSegment.fileName(segmentOffset(0))).toFile.length should be (offset(100))
       (dir / "topic-1" / LogSegment.fileName(segmentOffset(1))).toFile.length should be (offset(80))
@@ -120,7 +120,7 @@ class LogSpec extends FlatSpec with Matchers {
 
   it should "delete segments until predicate matches" in {
     withTempDir("log-spec") { dir =>
-      val log = Log.open(dir, "topic-1", 1 kilobyte)
+      val log = Log.open(dir, "topic-1", format, 1 kilobyte)
       val message = Array[Byte](1, 1, 1, 1)
       def segmentOffset(n: Int) = 128 * n * (4 + message.length)
       
@@ -146,7 +146,7 @@ class LogSpec extends FlatSpec with Matchers {
 
   it should "read messages from closest segment if given one is empty" in {
     withTempDir("log-spec") { dir =>
-      val log = Log.open(dir, "topic-1", 1 kilobytes)
+      val log = Log.open(dir, "topic-1", format, 1 kilobytes)
       val message = Array[Byte](1, 1, 1, 1)
 
       (0 until (128 * 5)).foreach(_ => log.append(messageBatch(message)))
@@ -159,7 +159,7 @@ class LogSpec extends FlatSpec with Matchers {
 
   it should "read messages from next closest segment if current is truncated to empty" in {
     withTempDir("log-spec") { dir =>
-      val log1 = Log.open(dir, "topic-1", 1 kilobytes)
+      val log1 = Log.open(dir, "topic-1", format, 1 kilobytes)
       val message1 = Array[Byte](1, 1, 1, 1)
       val message2 = Array[Byte](2, 2, 2, 2)
 
@@ -182,9 +182,19 @@ class LogSpec extends FlatSpec with Matchers {
 
       truncate(0, 5)
 
-      val log2 = Log.open(dir, "topic-1", 1 kilobytes)
+      val log2 = Log.open(dir, "topic-1", format, 1 kilobytes)
 
       log2.read(0, 128).count should be (128)
+    }
+  }
+
+  it should "throw exception if message size exceeds limit" in {
+    withTempDir("log-spec") { dir =>
+      val log = Log.open(dir, "topic-1", MessageBinaryFormat(10))
+      
+      intercept[MessageSizeExceedsLimit] {
+        log.append(messageBatch(Array.ofDim[Byte](11)))
+      }
     }
   }
 }

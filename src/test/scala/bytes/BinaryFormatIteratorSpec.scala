@@ -20,7 +20,6 @@ class BinaryFormatIteratorSpec extends FlatSpec with Matchers {
     
     val iter = BinaryFormatIterator(chunk, format)
     def count(n: Int): Int = if (iter.hasNext) { iter.next; count(n + 1); } else n
-    //BinaryFormatIterator(chunk, format).toList should have length 10
     count(0) should be (10)
   }
 

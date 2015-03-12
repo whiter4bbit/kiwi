@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import org.scalatest._
 
-import phi.message.{SimpleMessageBatch, Message, MessageBinaryFormat}
+import phi.message.{Message, MessageBinaryFormat}
 
 import phi.bytes._
 import phi.io._
