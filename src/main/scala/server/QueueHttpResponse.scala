@@ -1,19 +1,28 @@
 package phi.server
 
 import org.jboss.netty.handler.codec.http._
+import org.jboss.netty.buffer.ChannelBuffers
+import ChannelBuffers._
+import HttpResponseStatus._
+
 import phi.ByteChunkAndOffset
 
-class QueueHttpResponse(version: HttpVersion, status: HttpResponseStatus, val batch: Option[ByteChunkAndOffset]) extends DefaultHttpResponse(version, status)
+class QueueHttpResponse(status: HttpResponseStatus, val batch: Option[ByteChunkAndOffset]) 
+    extends DefaultHttpResponse(HttpVersion.HTTP_1_1, status)
 
 object QueueHttpResponse {
-  val QueueHttpVersion = HttpVersion.HTTP_1_1
-
   def ok(batch: Option[ByteChunkAndOffset] = None): QueueHttpResponse = 
-    new QueueHttpResponse(QueueHttpVersion, HttpResponseStatus.OK, batch)
+    new QueueHttpResponse(OK, batch)
 
   def ok(batch: ByteChunkAndOffset): QueueHttpResponse =
     ok(Some(batch))
 
   def noContent() =
-    new QueueHttpResponse(QueueHttpVersion, HttpResponseStatus.NO_CONTENT, None)
+    new QueueHttpResponse(NO_CONTENT, None)
+
+  def ok(content: String): QueueHttpResponse = {
+    val response = new QueueHttpResponse(OK, None)
+    response.setContent(wrappedBuffer(content.getBytes))
+    response
+  }
 }

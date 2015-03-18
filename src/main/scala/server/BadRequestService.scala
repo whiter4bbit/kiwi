@@ -1,17 +1,15 @@
 package phi.server
 
 import com.twitter.finagle.Service
-import com.twitter.finagle.http.Response
+import com.twitter.finagle.http.{Request, Response}
 import com.twitter.util.Future
-import org.jboss.netty.handler.codec.http._
+import org.jboss.netty.handler.codec.http.HttpResponseStatus._
 
 import phi.Logger
 
-object BadRequestService extends Service[HttpRequest, HttpResponse] with Logger {
-  val BadRequest = Future.value(Response(HttpResponseStatus.BAD_REQUEST))
-
-  def apply(req: HttpRequest) = {
+object BadRequestService extends Service[Request, Response] with Logger {
+  def apply(req: Request) = {
     log.warn("Bad request {}.", req)
-    BadRequest
+    Future.value(Response(BAD_REQUEST))
   }
 }

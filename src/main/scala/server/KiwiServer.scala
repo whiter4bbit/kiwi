@@ -55,12 +55,10 @@ object KiwiServer {
 
     val service = ExceptionHandler andThen producerFilter andThen 
         offsetConsumerFilter andThen globalConsumerFilter andThen 
-        offsetFilter andThen BadRequestService
-
-    val http = Http()
+        offsetFilter andThen  BadRequestService 
 
     val server = ServerBuilder()
-      .codec(QueueHttpCodec(http))
+      .codec(RichHttpCodec(Http()))
       .bindTo(config.bindAddress)
       .name("queue-server")
       .logger(JULLogger.getLogger("com.twitter.finagle"))

@@ -14,6 +14,7 @@ case class SendFailed(reason: String) extends Exception(reason)
 class QueueProducer private[client] (client: Service[HttpRequest, HttpResponse], topic: String, writer: BinaryFormatWriter[Message]) {
   def send(messages: List[Message]): Future[Unit] = {
     val request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.POST, topic)
+    request.headers.set("Content-Type", "application/octet-stream")
     writer.toByteChunk(messages) match {
       case Success(chunk) => {
         request.setContent(chunk.toChannelBuffer)

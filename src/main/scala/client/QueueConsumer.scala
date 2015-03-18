@@ -71,8 +71,11 @@ class GlobalQueueConsumer private[client] (client: Service[HttpRequest, HttpResp
 object QueueConsumer {
   case class WrongResponse(msg: String) extends Exception(msg)
 
-  private[client] def httpGet(path: String): HttpRequest =
-    new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, path)
+  private[client] def httpGet(path: String): HttpRequest = {
+    val request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, path)
+    request.headers.set("Accept", "application/octet-stream")
+    request
+  }
 
   private[client] def httpPost(path: String): HttpRequest = {
     new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.POST, path)

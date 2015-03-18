@@ -30,5 +30,6 @@ libraryDependencies ++= Seq(
   "ch.qos.logback" % "logback-classic" % "1.1.2",
   "org.slf4j" % "slf4j-api" % "1.7.10",
   "org.slf4j" % "jul-to-slf4j" % "1.7.10",
-  "jline" % "jline" % "2.12.1"
+  "jline" % "jline" % "2.12.1",
+  "org.json4s" %% "json4s-native" % "3.2.10"
 )
