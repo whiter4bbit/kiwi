@@ -13,6 +13,9 @@ import phi.{Logger, Consumer, Kiwi, ByteChunkAndOffset}
 import phi.bytes._
 import phi.json._
 
+import ContentTypes._
+import Exceptions._
+
 trait BaseConsumerFilter extends SimpleFilter[Request, Response] with Logger {
   private[server] val kiwi: Kiwi
 
@@ -24,18 +27,14 @@ trait BaseConsumerFilter extends SimpleFilter[Request, Response] with Logger {
     kiwi.getAwaitableConsumer().await(consumer, max, timeout)
   }
 
-  def withContentType(contentType: String)(chunkAndOffset: Future[ByteChunkAndOffset]): Future[Response] = {
+  def withContentType(contentType: Option[String])(chunkAndOffset: Future[ByteChunkAndOffset]): Future[Response] = {
     contentType match {
-      case "application/json" => chunkAndOffset.map { chunkAndOffset =>
+      case Some(`application/json`) => chunkAndOffset.map { chunkAndOffset =>
         val json = JsonMessageFormat.toJson(chunkAndOffset.chunk, kiwi.messageFormat)
         RichResponse(json)
       }
-      case "application/octet-stream" => chunkAndOffset.map { chunkAndOffset =>
-        log.trace(s"Sending chunk with ${chunkAndOffset.chunk.length} bytes")
-        RichResponse(chunkAndOffset)
-      }
-      case unsupported => Future.rawException(UnsupportedContentType(unsupported))
+      case Some(`application/octet-stream`) => chunkAndOffset.map(RichResponse.apply)
+      case _ => Future.rawException(UnsupportedContentType(contentType.getOrElse("")))
     }
   }
 }
-

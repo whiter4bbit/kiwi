@@ -8,6 +8,8 @@ import org.jboss.netty.handler.codec.http._
 import phi.Logger
 import phi.message.MessageSizeExceedsLimit
 
+import Exceptions._
+
 object ExceptionHandler extends SimpleFilter[Request, Response] with Logger {
   def apply(req: Request, service: Service[Request, Response]): Future[Response] = {
     service(req) handle {

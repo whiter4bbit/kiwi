@@ -13,7 +13,7 @@ import phi.Kiwi
 
 class GlobalConsumerFilter(val kiwi: Kiwi) extends BaseConsumerFilter {
   def apply(req: Request, service: Service[Request, Response]): Future[Response] = {
-    val contentType = req.headers.get("Accept")
+    val contentType = req.accept.headOption
 
     (req.getMethod, Path(req.getUri)) match {
       case Get -> Root / topic  =>
